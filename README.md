@@ -1,0 +1,1 @@
+EditorJS block for displaying 360 images
