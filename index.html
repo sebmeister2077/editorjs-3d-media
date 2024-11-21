@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.155.0/three.min.js"></script>
+    </head>
+    <body>
+        <div id="viewer" style="width: 60%; height: 50vh"></div>
+
+        <script>
+            // Get the container
+            const container = document.getElementById('viewer')
+
+            // Scene setup
+            const scene = new THREE.Scene()
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+            const renderer = new THREE.WebGLRenderer()
+            renderer.setSize(window.innerWidth, window.innerHeight)
+            container.appendChild(renderer.domElement)
+
+            // Create a sphere geometry
+            const geometry = new THREE.SphereGeometry(500, 60, 40)
+            geometry.scale(-1, 1, 1) // Flip the sphere inside-out
+
+            // Load the 360° texture
+            const texture = new THREE.TextureLoader().load('./assets/image2.jpg')
+            const material = new THREE.MeshBasicMaterial({ map: texture })
+            const sphere = new THREE.Mesh(geometry, material)
+            scene.add(sphere)
+
+            // Set camera position
+            camera.position.set(0, 0, 0.1)
+
+            // Add mouse movement controls
+            let isDragging = false
+            let previousMousePosition = { x: 0, y: 0 }
+
+            container.addEventListener('mousedown', () => (isDragging = true))
+            container.addEventListener('mouseup', () => (isDragging = false))
+            container.addEventListener('mousemove', (event) => {
+                if (isDragging) {
+                    const deltaMove = {
+                        x: event.movementX || event.mozMovementX || event.webkitMovementX || 0,
+                        y: event.movementY || event.mozMovementY || event.webkitMovementY || 0,
+                    }
+
+                    sphere.rotation.y += deltaMove.x * 0.002
+                    sphere.rotation.x += deltaMove.y * 0.002
+                }
+            })
+
+            // Animate the scene
+            function animate() {
+                requestAnimationFrame(animate)
+                renderer.render(scene, camera)
+            }
+            animate()
+        </script>
+    </body>
+</html>
