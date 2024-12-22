@@ -3,12 +3,52 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Document</title>
+        <title>Test editorjs 360 media</title>
+        <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@2.27.0"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@editorjs/image"></script>
 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.155.0/three.min.js"></script>
+        <script src="./dist/dev-build.js"></script>
     </head>
     <body>
-        <div id="viewer" style="width: 60%; height: 50vh"></div>
+        <div id="editor" style="background-color: antiquewhite"></div>
+        <script>
+            const Editorjs360Media = self.Editorjs360Media
+            const dataLocation = 'editorjs-data-testing'
+
+            let data = {}
+            try {
+                data = JSON.parse(localStorage.getItem(dataLocation))
+            } catch {}
+            var editor = new EditorJS({
+                holder: 'editor',
+                tools: {
+                    media: {
+                        class: Editorjs360Media,
+                    },
+                    simpleImage: {
+                        class: self.ImageTool,
+                    },
+                },
+                // readOnly: true,
+                onChange(api) {
+                    // api.saver.save().then((data) => {
+                    //     localStorage.setItem(dataLocation, JSON.stringify(data))
+                    // })
+                },
+                data,
+                i18n: {
+                    messages: {
+                        tools: {
+                            media: {
+                                Caption: 'Captiune',
+                            },
+                        },
+                    },
+                },
+            })
+        </script>
+        <!-- <div id="viewer" style="width: 60%; height: 50vh"></div>
 
         <script>
             // Get the container
@@ -58,6 +98,6 @@
                 renderer.render(scene, camera)
             }
             animate()
-        </script>
+        </script> -->
     </body>
 </html>

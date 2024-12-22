@@ -6,7 +6,7 @@ module.exports = {
     output: {
         filename: 'bundle.js', // Output bundle file name
         path: path.join(__dirname, '/dist'),
-        library: 'MultiBlockSelectionPlugin',
+        library: 'Editorjs360Media',
         libraryTarget: 'umd',
         libraryExport: 'default',
     },
