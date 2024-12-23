@@ -1,55 +1,28 @@
 import EditorJS, { BlockTool, BlockToolConstructable, BlockToolData, PasteEvent, ConversionConfig, PasteConfig, SanitizerConfig, ToolboxConfig, ToolConfig, API, BlockAPI } from '@editorjs/editorjs'
 import { BlockToolConstructorOptions, MenuConfig, MoveEvent } from '@editorjs/editorjs/types/tools';
 import { ICON } from './icon';
-import { ActionConfig } from './types';
+import { ActionConfig, Tool360MediaData } from './types';
 
 
-type Data = {
-    caption: string;
-    // stretched: boolean;
-    file: {
-        url: string;
-    }
-}
 type Config = {
 
 }
-enum BlockState {
-    Empty,
-    Uploading,
-    Filled,
-    Error,
-}
-type NodeNames = "wrapper" | "image" | "caption" | "imageContainer" | "fileButton" | "loader";
+
 export default class Editorjs360MediaBlock implements BlockTool {
     public sanitize?: SanitizerConfig | undefined;
-    private _data: Data;
+    private _data: Tool360MediaData;
     private config: Config;
     private api: API;
     private block: BlockAPI;
     private readOnly: boolean;
-    private nodes: Record<NodeNames, HTMLElement>
-    constructor(config: BlockToolConstructorOptions<Data, Config>) {
+    constructor(config: BlockToolConstructorOptions<Tool360MediaData, Config>) {
         this.config = config.config || {};
         this._data = config.data || {};
         this.api = config.api;
         this.readOnly = config.readOnly;
         this.block = config.block;
 
-        this.nodes = {
-            caption: parseStringToEl(/*html*/`<div class="" contentEditable="${(!this.readOnly).toString()}"></div>`),
-            fileButton: parseStringToEl(/*html*/`<div class=""></div>`),
-            image: parseStringToEl(/*html*/`<img class="">`),
-            imageContainer: parseStringToEl(/*html*/`<div class=""></div>`),
-            loader: parseStringToEl(/*html*/`<div class=""></div>`),
-            wrapper: parseStringToEl(/*html*/`<div class=""></div>`),
-        }
 
-        // this.nodes.caption.dataset.placeholder = this.config.captionPlaceholder;
-        this.nodes.imageContainer.appendChild(this.nodes.loader);
-        this.nodes.wrapper.appendChild(this.nodes.imageContainer);
-        this.nodes.wrapper.appendChild(this.nodes.caption);
-        this.nodes.wrapper.appendChild(this.nodes.fileButton);
     }
 
     public static get isReadOnlySupported() {
@@ -59,7 +32,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
         return false;
     }
 
-    public set data(data: Data) {
+    public set data(data: Tool360MediaData) {
         this._data = data;
     }
     public get data() {
@@ -72,7 +45,10 @@ export default class Editorjs360MediaBlock implements BlockTool {
             title: "360* Media"
         }
     }
-    public save(block: HTMLElement): Data {
+    public save(block: HTMLElement): Tool360MediaData {
+        const captionText = this.nodes.caption.textContent ?? "";
+        this._data.caption = captionText;
+
         return this.data
     }
 
@@ -114,10 +90,10 @@ export default class Editorjs360MediaBlock implements BlockTool {
     //     // throw new Error('Method not implemented.');
     // https://github.com/editor-js/image/blob/c8236e5765294f6b6590573910a68d3826671838/src/index.ts#L226
     // }
-    validate(blockData: Data): boolean {
+    validate(blockData: Tool360MediaData): boolean {
         return Boolean(blockData.file.url);
     }
-    public merge?(blockData: Data): void {
+    public merge?(blockData: Tool360MediaData): void {
         // throw new Error('Method not implemented.');
     }
     public onPaste?(event: PasteEvent): void {
@@ -160,8 +136,3 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
 
 
-function parseStringToEl(html: string): HTMLElement {
-    const parser = new DOMParser();
-    const el = parser.parseFromString(html, 'text/html').body.firstElementChild
-    return el as HTMLElement;
-}

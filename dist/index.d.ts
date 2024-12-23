@@ -1,12 +1,6 @@
 import { BlockTool, PasteEvent, ConversionConfig, PasteConfig, SanitizerConfig, ToolboxConfig, ToolConfig } from '@editorjs/editorjs';
 import { BlockToolConstructorOptions, MoveEvent } from '@editorjs/editorjs/types/tools';
-import { ActionConfig } from './types';
-type Data = {
-    caption: string;
-    file: {
-        url: string;
-    };
-};
+import { ActionConfig, Tool360MediaData } from './types';
 type Config = {};
 export default class Editorjs360MediaBlock implements BlockTool {
     sanitize?: SanitizerConfig | undefined;
@@ -15,19 +9,18 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private api;
     private block;
     private readOnly;
-    private nodes;
-    constructor(config: BlockToolConstructorOptions<Data, Config>);
+    constructor(config: BlockToolConstructorOptions<Tool360MediaData, Config>);
     static get isReadOnlySupported(): boolean;
     get isInline(): boolean;
-    set data(data: Data);
-    get data(): Data;
+    set data(data: Tool360MediaData);
+    get data(): Tool360MediaData;
     static get toolbox(): ToolboxConfig;
-    save(block: HTMLElement): Data;
+    save(block: HTMLElement): Tool360MediaData;
     render(): HTMLElement | Promise<HTMLElement>;
     private get EditorCSS();
     private get CSS();
-    validate(blockData: Data): boolean;
-    merge?(blockData: Data): void;
+    validate(blockData: Tool360MediaData): boolean;
+    merge?(blockData: Tool360MediaData): void;
     onPaste?(event: PasteEvent): void;
     destroy?(): void;
     rendered?(): void;

@@ -27,3 +27,11 @@ export type ActionConfig = {
      */
     action?: Function;
 }
+
+export type Tool360MediaData = {
+    caption: string;
+    // stretched: boolean;
+    file: {
+        url: string;
+    }
+}
