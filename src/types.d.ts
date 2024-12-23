@@ -35,3 +35,18 @@ export type Tool360MediaData = {
         url: string;
     }
 }
+
+export type Media360Config = {
+
+}
+
+export interface UploadResponseFormat<AdditionalFileData = {}> {
+    /**
+     * success - 1 for successful uploading, 0 for failure
+     */
+    success: number;
+    file: {
+
+        url: string;
+    } & AdditionalFileData;
+}

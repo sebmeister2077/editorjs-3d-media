@@ -1,3 +1,4 @@
+import { IconPicture } from '@codexteam/icons';
 import { API } from "@editorjs/editorjs";
 import { Tool360MediaData } from "./types";
 
@@ -5,6 +6,7 @@ type NodeNames = "wrapper" | "caption" | "imageContainer" | "fileButton" | "load
 type ConstructorProps = {
     api: API;
     readOnly: boolean;
+    onSelectFile(): void;
 }
 enum BlockState {
     Empty,
@@ -13,17 +15,22 @@ enum BlockState {
     Error,
 }
 export class Ui {
-    private nodes: Record<NodeNames, HTMLElement> & { media: null | HTMLImageElement | HTMLVideoElement }
+    public nodes: Record<NodeNames, HTMLElement> & { media: null | HTMLImageElement | HTMLVideoElement }
 
     private api: API;
     private readOnly: boolean;
-    constructor({ api, readOnly }: ConstructorProps) {
+    private onSelectFile: () => void;
+    constructor({ api, readOnly, onSelectFile }: ConstructorProps) {
         this.api = api
         this.readOnly = readOnly;
+        this.onSelectFile = onSelectFile
 
         this.nodes = {
             caption: parseStringToEl(/*html*/`<div class="" contentEditable="${(!this.readOnly).toString()}"></div>`),
-            fileButton: parseStringToEl(/*html*/`<div class=""></div>`),
+            fileButton: parseStringToEl(/*html*/`
+                <button class="${this.CSS.button}">
+                    ${IconPicture} ${this.api.i18n.t('Select an Image')}
+                </button>`),
             media: null,
             imageContainer: parseStringToEl(/*html*/`<div class=""></div>`),
             loader: parseStringToEl(/*html*/`<div class=""></div>`),
@@ -35,6 +42,9 @@ export class Ui {
         this.nodes.wrapper.appendChild(this.nodes.imageContainer);
         this.nodes.wrapper.appendChild(this.nodes.caption);
         this.nodes.wrapper.appendChild(this.nodes.fileButton);
+        this.nodes.fileButton.addEventListener('click', () => {
+            this.onSelectFile();
+        });
     }
 
     public render(toolData: Tool360MediaData): HTMLElement {
@@ -44,7 +54,6 @@ export class Ui {
         else {
             this.toggleStatus(BlockState.Uploading)
         }
-
 
         return this.nodes.wrapper;
     }
@@ -118,8 +127,12 @@ export class Ui {
         };
     };
 
-    private toggleStatus(status: BlockState) {
-
+    private toggleStatus(status: BlockState): void {
+        for (const statusType in BlockState) {
+            if (Object.prototype.hasOwnProperty.call(BlockState, statusType)) {
+                this.nodes.wrapper.classList.toggle(`${this.CSS.wrapper}--${BlockState[statusType as keyof typeof BlockState]}`, status === BlockState[statusType as keyof typeof BlockState]);
+            }
+        }
     }
 }
 

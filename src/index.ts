@@ -1,27 +1,35 @@
 import EditorJS, { BlockTool, BlockToolConstructable, BlockToolData, PasteEvent, ConversionConfig, PasteConfig, SanitizerConfig, ToolboxConfig, ToolConfig, API, BlockAPI } from '@editorjs/editorjs'
 import { BlockToolConstructorOptions, MenuConfig, MoveEvent } from '@editorjs/editorjs/types/tools';
 import { ICON } from './icon';
-import { ActionConfig, Tool360MediaData } from './types';
+import { ActionConfig, Media360Config, Tool360MediaData as Media360Data } from './types';
+import { Ui } from './ui';
 
 
-type Config = {
 
-}
 
 export default class Editorjs360MediaBlock implements BlockTool {
     public sanitize?: SanitizerConfig | undefined;
-    private _data: Tool360MediaData;
-    private config: Config;
+    private _data: Media360Data;
+    private config: Media360Config;
     private api: API;
     private block: BlockAPI;
     private readOnly: boolean;
-    constructor(config: BlockToolConstructorOptions<Tool360MediaData, Config>) {
-        this.config = config.config || {};
-        this._data = config.data || {};
-        this.api = config.api;
-        this.readOnly = config.readOnly;
-        this.block = config.block;
+    private ui: Ui;
+    constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media360Data, Media360Config>) {
+        this.config = config || {};
+        this._data = data || {};
+        this.api = api;
+        this.readOnly = readOnly;
+        this.block = block;
 
+
+        this.ui = new Ui({
+            api,
+            readOnly,
+            onSelectFile() {
+                console.log("selected file")
+            },
+        })
 
     }
 
@@ -32,10 +40,23 @@ export default class Editorjs360MediaBlock implements BlockTool {
         return false;
     }
 
-    public set data(data: Tool360MediaData) {
-        this._data = data;
+    public set data(data: Media360Data) {
+
+        this._data.file = data.file || { url: "" };
+        this._data.caption = data.caption || "";
+        this.ui.fillCaption(this._data.caption);
+        if (this._data.file.url)
+            this.ui.fillImage(this._data.file.url);
+
+        // Editorjs360MediaBlock.tunes.forEach(({ name: tune }) => {
+        //     const value = typeof data[tune as keyof Media360Data] !== 'undefined' ?
+        //         data[tune as keyof Media360Data] === true || data[tune as keyof Media360Data] === 'true'
+        //         : false;
+
+        //     this.setTune(tune as keyof Media360Data, value);
+        // })
     }
-    public get data() {
+    public get data(): Media360Data {
         return this._data;
     }
 
@@ -45,31 +66,17 @@ export default class Editorjs360MediaBlock implements BlockTool {
             title: "360* Media"
         }
     }
-    public save(block: HTMLElement): Tool360MediaData {
-        const captionText = this.nodes.caption.textContent ?? "";
+    public save(block: HTMLElement): Media360Data {
+        const captionText = this.ui.nodes.caption.textContent || "";
         this._data.caption = captionText;
 
         return this.data
     }
 
     public render(): HTMLElement | Promise<HTMLElement> {
-        const element = new DOMParser().parseFromString(/*html*/`
-            <div class="cdx-block ${this.CSS.tool} image-tool--caption image-tool--uploading">
-                <div class="image-tool__image">
-                    <div class="image-tool__image-preloader">
-                    </div>
-                </div>
-                <div class="cdx-input image-tool__caption" contenteditable="true" data-placeholder="Caption">
-                </div>
-                <div class="cdx-button">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                        <rect width="14" height="14" x="5" y="5" stroke="currentColor" stroke-width="2" rx="4"></rect><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.13968 15.32L8.69058 11.5661C9.02934 11.2036 9.48873 11 9.96774 11C10.4467 11 10.9061 11.2036 11.2449 11.5661L15.3871 16M13.5806 14.0664L15.0132 12.533C15.3519 12.1705 15.8113 11.9668 16.2903 11.9668C16.7693 11.9668 17.2287 12.1705 17.5675 12.533L18.841 13.9634"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.7778 9.33331H13.7867"></path>
-                    </svg>
-                     Select an Image
-                </div>
-            </div>
-            `, 'text/html').body.firstChild as HTMLElement
-        return element;
+        this.ui.applyTune("caption", true);
+
+        return this.ui.render(this.data);
     }
 
     private get EditorCSS() {
@@ -90,10 +97,10 @@ export default class Editorjs360MediaBlock implements BlockTool {
     //     // throw new Error('Method not implemented.');
     // https://github.com/editor-js/image/blob/c8236e5765294f6b6590573910a68d3826671838/src/index.ts#L226
     // }
-    validate(blockData: Tool360MediaData): boolean {
+    validate(blockData: Media360Data): boolean {
         return Boolean(blockData.file.url);
     }
-    public merge?(blockData: Tool360MediaData): void {
+    public merge?(blockData: Media360Data): void {
         // throw new Error('Method not implemented.');
     }
     public onPaste?(event: PasteEvent): void {
@@ -126,10 +133,92 @@ export default class Editorjs360MediaBlock implements BlockTool {
         // throw new Error('Method not implemented.');
     }
 
-    // public appendCallback() {
-    // }
+    public appendCallback(): void {
+        this.ui.nodes.fileButton.click();
+    }
     public static get tunes(): Array<ActionConfig> {
         return []
+    }
+
+
+    private onUpload(response: UploadResponseFormat): void {
+        if (response.success && Boolean(response.file)) {
+            this.image = response.file;
+        } else {
+            this.uploadingFailed('incorrect response: ' + JSON.stringify(response));
+        }
+    }
+
+    /**
+     * Handle uploader errors
+     * @param errorText - uploading error info
+     */
+    private uploadingFailed(errorText: string): void {
+        console.log('Image Tool: uploading failed because of', errorText);
+
+        this.api.notifier.show({
+            message: this.api.i18n.t('Couldn’t upload image. Please try another.'),
+            style: 'error',
+        });
+        this.ui.hidePreloader();
+    }
+
+    /**
+     * Callback fired when Block Tune is activated
+     * @param tuneName - tune that has been clicked
+     */
+    private tuneToggled(tuneName: keyof ImageToolData): void {
+        // inverse tune state
+        this.setTune(tuneName, !(this._data[tuneName] as boolean));
+
+        // reset caption on toggle
+        if (tuneName === 'caption' && !this._data[tuneName]) {
+            this._data.caption = '';
+            this.ui.fillCaption('');
+        }
+    }
+
+    /**
+     * Set one tune
+     * @param tuneName - {@link Tunes.tunes}
+     * @param value - tune state
+     */
+    private setTune(tuneName: keyof ImageToolData, value: boolean): void {
+        (this._data[tuneName] as boolean) = value;
+
+        this.ui.applyTune(tuneName, value);
+        if (tuneName === 'stretched') {
+            /**
+             * Wait until the API is ready
+             */
+            Promise.resolve().then(() => {
+                this.block.stretched = value;
+            })
+                .catch((err) => {
+                    console.error(err);
+                });
+        }
+    }
+
+    /**
+     * Show preloader and upload image file
+     * @param file - file that is currently uploading (from paste)
+     */
+    private uploadFile(file: Blob): void {
+        this.uploader.uploadByFile(file, {
+            onPreview: (src: string) => {
+                this.ui.showPreloader(src);
+            },
+        });
+    }
+
+    /**
+     * Show preloader and upload image by target url
+     * @param url - url pasted
+     */
+    private uploadUrl(url: string): void {
+        this.ui.showPreloader(url);
+        this.uploader.uploadByUrl(url);
     }
 
 }
