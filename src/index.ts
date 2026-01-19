@@ -48,6 +48,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private _data: Media3DData;
     private config: Media3DConfig;
     private api: API;
+    private wrapperElement: HTMLElement;
     private block: BlockAPI;
     private readOnly: boolean;
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>) {
@@ -61,6 +62,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
         this.readOnly = readOnly;
         this.block = block;
 
+        this.wrapperElement = document.createElement('div');
         this.verify3DViewer();
     }
 
@@ -94,34 +96,15 @@ export default class Editorjs360MediaBlock implements BlockTool {
     public render(): HTMLElement | Promise<HTMLElement> {
         if (!this.data || !this.data.file || !this.data.file.url) {
             if (this.readOnly) {
-                const noData = document.createElement('div');
-                noData.textContent = this.api.i18n.t('No 3D model provided');
-                return noData;
+                const noData = document.createTextNode(this.api.i18n.t('No 3D model provided'));
+                this.wrapperElement.appendChild(noData);
+                return this.wrapperElement;
             }
-            const uploadButton = document.createElement('div');
-            uploadButton.classList.add(this.CSS.uploadButton);
-            // uploadButton.appendChild()//icon
-            uploadButton.appendChild(document.createTextNode(this.api.i18n.t('Select 3D model')));
-            uploadButton.addEventListener('click', async () => {
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.hidden = true;
-                fileInput.accept = this.config.formatsAllowed.map(ext => `.${ext}`).join(',');
-
-                fileInput.addEventListener('change', async () => {
-                    const file = fileInput.files?.[0];
-                    if (!file) return;
-                    this.handleFileReceived(file);
-                    fileInput.remove();
-                });
-
-                document.body.appendChild(fileInput);
-                fileInput.click();
-
-            });
-
-            return uploadButton
+            this.renderUploadButton();
+            return this.wrapperElement;
         }
+
+        const captionElement = this.drawCaptionElement();
         if (this.data.viewer === 'modelviewer') {
             const element = new DOMParser().parseFromString(/*html*/ `
                 <model-viewer model-viewer
@@ -138,10 +121,11 @@ export default class Editorjs360MediaBlock implements BlockTool {
                 element.setAttribute('ios-src', this.data.file.iosSrcUrl);
             if (this.data.file.posterUrl)
                 element.setAttribute('poster', this.data.file.posterUrl);
-            return element;
+            this.wrapperElement.replaceChildren(element, captionElement);
+            return this.wrapperElement;
         }
 
-        return document.createElement("div");
+        return this.wrapperElement;
 
 
     }
@@ -157,6 +141,8 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private get CSS() {
         return {
             uploadButton: "cdx-3d-media-upload-button",
+            temporaryPreview: "cdx-3d-media-temporary-preview",
+            caption: "cdx-3d-media-caption",
             tool: "3d-media-tool"
         }
     }
@@ -208,7 +194,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
             console.error("No uploadFile function provided in config.");
             return;
         }
-        const temporaryUrl = URL.createObjectURL(file);
+        const loadingElement = this.renderLoadingElement();
         this.config.uploadFile(file).then((fileData) => {
             this.data = {
                 ...this.data,
@@ -218,12 +204,61 @@ export default class Editorjs360MediaBlock implements BlockTool {
                 caption: this.data.caption || "",
                 viewer: this.config.viewer,
             };
-            // this.block.refresh();
         }).catch((err) => {
             console.error("Error uploading 3D model:", err);
         }).finally(() => {
-            URL.revokeObjectURL(temporaryUrl);
+            this.render();
         })
+    }
+
+
+    //#region Drawing elements
+
+    private renderUploadButton() {
+        const uploadButton = document.createElement('div');
+        uploadButton.classList.add(this.CSS.uploadButton);
+        // uploadButton.appendChild()//icon
+        uploadButton.appendChild(document.createTextNode(this.api.i18n.t('Select 3D model')));
+        uploadButton.addEventListener('click', async () => {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.hidden = true;
+            fileInput.accept = this.config.formatsAllowed.map(ext => `.${ext}`).join(',');
+
+            fileInput.addEventListener('change', async (e) => {
+                e.stopPropagation();
+                const file = fileInput.files?.[0];
+                if (!file) return;
+                this.handleFileReceived(file);
+                fileInput.remove();
+                uploadButton.remove();
+            });
+
+            document.body.appendChild(fileInput);
+            fileInput.click();
+
+        });
+
+        this.wrapperElement.replaceChildren(uploadButton);
+    }
+
+    private renderLoadingElement() {
+        const loadingElement = document.createElement('div');
+        loadingElement.classList.add(this.CSS.temporaryPreview);
+
+        this.wrapperElement.replaceChildren(loadingElement);
+
+        return loadingElement;
+    }
+
+    private drawCaptionElement() {
+        const captionElement = document.createElement('div');
+        captionElement.contentEditable = String(!this.readOnly);
+        captionElement.classList.add(this.CSS.caption);
+
+        captionElement.innerText = this.data.caption || "";
+
+        return captionElement;
     }
 
 

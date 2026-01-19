@@ -28,6 +28,18 @@
                 tools: {
                     media: {
                         class: Editorjs3DMedia,
+                        config: {
+                            uploadFile(file) {
+                                // Your file uploading logic here
+                                return new Promise((resolve) => {
+                                    setTimeout(() => {
+                                        resolve({
+                                            url: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+                                        })
+                                    }, 2000)
+                                })
+                            },
+                        },
                     },
                     simpleImage: {
                         class: self.ImageTool,

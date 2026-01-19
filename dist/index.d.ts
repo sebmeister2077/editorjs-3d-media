@@ -45,6 +45,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private _data;
     private config;
     private api;
+    private wrapperElement;
     private block;
     private readOnly;
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>);
@@ -59,6 +60,9 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private get CSS();
     validate(blockData: Media3DData): boolean;
     private handleFileReceived;
+    private renderUploadButton;
+    private renderLoadingElement;
+    private drawCaptionElement;
     private verify3DViewer;
 }
 export {};
