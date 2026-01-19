@@ -1,6 +1,45 @@
-import { BlockTool, PasteEvent, ConversionConfig, PasteConfig, SanitizerConfig, ToolboxConfig, ToolConfig } from '@editorjs/editorjs';
-import { BlockToolConstructorOptions, MoveEvent } from '@editorjs/editorjs/types/tools';
-import { ActionConfig, Media360Config, Tool360MediaData as Media360Data } from './types';
+import { BlockTool, SanitizerConfig, ToolboxConfig } from '@editorjs/editorjs';
+import { BlockToolConstructorOptions } from '@editorjs/editorjs/types/tools';
+import './index.css';
+export type Media3DData = {
+    caption: string;
+    viewer: Viewer;
+} & (ThreeJSData | ModelViewerData);
+type ModelViewerData = {
+    file: {
+        posterUrl?: string;
+        iosSrcUrl?: string;
+        url: string;
+    };
+} & {
+    viewer: 'modelviewer';
+};
+type ThreeJSData = {
+    file: {
+        url: string;
+    };
+} & {
+    viewer: 'threejs';
+};
+type Viewer = 'threejs' | 'modelviewer';
+export type Media3DConfig = {
+    viewer: Viewer;
+    viewerStyle?: Partial<CSSStyleDeclaration>;
+    /**
+     * allowed 3d model formats
+     * @example ['glb','gltf','usdz','obj','fbx','3mf']
+     * @default ['glb','gltf','usdz','obj','fbx','3mf']
+     */
+    formatsAllowed: string[];
+    /**
+     * function to upload file to server
+     */
+    uploadFile?(file: File): Promise<{
+        url: string;
+        iosSrcUrl?: string;
+        posterUrl?: string;
+    }>;
+};
 export default class Editorjs360MediaBlock implements BlockTool {
     sanitize?: SanitizerConfig | undefined;
     private _data;
@@ -8,60 +47,18 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private api;
     private block;
     private readOnly;
-    private ui;
-    constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media360Data, Media360Config>);
+    constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>);
     static get isReadOnlySupported(): boolean;
     get isInline(): boolean;
-    set data(data: Media360Data);
-    get data(): Media360Data;
+    set data(data: Media3DData);
+    get data(): Media3DData;
     static get toolbox(): ToolboxConfig;
-    save(block: HTMLElement): Media360Data;
+    save(block: HTMLElement): Media3DData;
     render(): HTMLElement | Promise<HTMLElement>;
     private get EditorCSS();
     private get CSS();
-    validate(blockData: Media360Data): boolean;
-    merge?(blockData: Media360Data): void;
-    onPaste?(event: PasteEvent): void;
-    destroy?(): void;
-    rendered?(): void;
-    updated?(): void;
-    removed?(): void;
-    moved?(event: MoveEvent): void;
-    pasteConfig?: PasteConfig | undefined;
-    conversionConfig?: ConversionConfig | undefined;
-    title?: string | undefined;
-    prepare?(data: {
-        toolName: string;
-        config: ToolConfig;
-    }): void | Promise<void>;
-    reset?(): void | Promise<void>;
-    appendCallback(): void;
-    static get tunes(): Array<ActionConfig>;
-    private onUpload;
-    /**
-     * Handle uploader errors
-     * @param errorText - uploading error info
-     */
-    private uploadingFailed;
-    /**
-     * Callback fired when Block Tune is activated
-     * @param tuneName - tune that has been clicked
-     */
-    private tuneToggled;
-    /**
-     * Set one tune
-     * @param tuneName - {@link Tunes.tunes}
-     * @param value - tune state
-     */
-    private setTune;
-    /**
-     * Show preloader and upload image file
-     * @param file - file that is currently uploading (from paste)
-     */
-    private uploadFile;
-    /**
-     * Show preloader and upload image by target url
-     * @param url - url pasted
-     */
-    private uploadUrl;
+    validate(blockData: Media3DData): boolean;
+    private handleFileReceived;
+    private verify3DViewer;
 }
+export {};

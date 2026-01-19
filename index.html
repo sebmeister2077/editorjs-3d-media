@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
@@ -7,13 +7,16 @@
         <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@2.27.0"></script>
         <script src="https://cdn.jsdelivr.net/npm/@editorjs/image"></script>
 
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.155.0/three.min.js"></script>
+        <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.155.0/three.min.js"></script> -->
         <script src="./dist/dev-build.js"></script>
+        <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+        <link rel="stylesheet" href="index.css" />
     </head>
     <body>
         <div id="editor" style="background-color: antiquewhite"></div>
         <script>
-            const Editorjs360Media = self.Editorjs360Media
+            const Editorjs3DMedia = self.Editorjs3DMedia
             const dataLocation = 'editorjs-data-testing'
 
             let data = {}
@@ -24,17 +27,23 @@
                 holder: 'editor',
                 tools: {
                     media: {
-                        class: Editorjs360Media,
+                        class: Editorjs3DMedia,
                     },
                     simpleImage: {
                         class: self.ImageTool,
+                        config: {
+                            endpoints: {
+                                byFile: 'http://127.0.0.1:8000/uploadFile', // Your backend file uploader endpoint
+                                byUrl: 'http://127.0.0.1:8000/fetchUrl', // Your endpoint that provides uploading by Url
+                            },
+                        },
                     },
                 },
                 // readOnly: true,
                 onChange(api) {
-                    // api.saver.save().then((data) => {
-                    //     localStorage.setItem(dataLocation, JSON.stringify(data))
-                    // })
+                    api.saver.save().then((data) => {
+                        localStorage.setItem(dataLocation, JSON.stringify(data))
+                    })
                 },
                 data,
                 i18n: {
@@ -48,56 +57,5 @@
                 },
             })
         </script>
-        <!-- <div id="viewer" style="width: 60%; height: 50vh"></div>
-
-        <script>
-            // Get the container
-            const container = document.getElementById('viewer')
-
-            // Scene setup
-            const scene = new THREE.Scene()
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
-            const renderer = new THREE.WebGLRenderer()
-            renderer.setSize(window.innerWidth, window.innerHeight)
-            container.appendChild(renderer.domElement)
-
-            // Create a sphere geometry
-            const geometry = new THREE.SphereGeometry(500, 60, 40)
-            geometry.scale(-1, 1, 1) // Flip the sphere inside-out
-
-            // Load the 360° texture
-            const texture = new THREE.TextureLoader().load('./assets/image2.jpg')
-            const material = new THREE.MeshBasicMaterial({ map: texture })
-            const sphere = new THREE.Mesh(geometry, material)
-            scene.add(sphere)
-
-            // Set camera position
-            camera.position.set(0, 0, 0.1)
-
-            // Add mouse movement controls
-            let isDragging = false
-            let previousMousePosition = { x: 0, y: 0 }
-
-            container.addEventListener('mousedown', () => (isDragging = true))
-            container.addEventListener('mouseup', () => (isDragging = false))
-            container.addEventListener('mousemove', (event) => {
-                if (isDragging) {
-                    const deltaMove = {
-                        x: event.movementX || event.mozMovementX || event.webkitMovementX || 0,
-                        y: event.movementY || event.mozMovementY || event.webkitMovementY || 0,
-                    }
-
-                    sphere.rotation.y += deltaMove.x * 0.002
-                    sphere.rotation.x += deltaMove.y * 0.002
-                }
-            })
-
-            // Animate the scene
-            function animate() {
-                requestAnimationFrame(animate)
-                renderer.render(scene, camera)
-            }
-            animate()
-        </script> -->
     </body>
 </html>

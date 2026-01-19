@@ -6,7 +6,7 @@ module.exports = {
     output: {
         filename: 'bundle.js', // Output bundle file name
         path: path.join(__dirname, '/dist'),
-        library: 'Editorjs360Media',
+        library: 'Editorjs3DMedia',
         libraryTarget: 'umd',
         libraryExport: 'default',
     },
