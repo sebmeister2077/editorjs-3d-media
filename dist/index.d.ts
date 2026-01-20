@@ -40,6 +40,11 @@ export type Media3DConfig = {
         posterUrl?: string;
     }>;
     /**
+     * validate file before upload
+     * @return true if valid, string with error message if not valid
+     */
+    validateFile?(file: File): boolean | string;
+    /**
      * Enable caption below 3D viewer
      * @default true
      */
@@ -70,7 +75,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private get EditorCSS();
     private get CSS();
     validate(blockData: Media3DData): boolean;
-    private handleFileReceived;
+    private handleFileSelected;
     private renderUploadButton;
     private renderLoadingElement;
     private drawCaptionElement;

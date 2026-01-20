@@ -40,6 +40,11 @@ export type Media3DConfig = {
      */
     uploadFile?(file: File): Promise<{ url: string; iosSrcUrl?: string; posterUrl?: string }>;
     /**
+     * validate file before upload
+     * @return true if valid, string with error message if not valid
+     */
+    validateFile?(file: File): boolean | string;
+    /**
      * Enable caption below 3D viewer
      * @default true
      */
@@ -210,11 +215,21 @@ export default class Editorjs360MediaBlock implements BlockTool {
     // }
 
 
-    private async handleFileReceived(file: File) {
-        console.log("🚀 ~ Editorjs360MediaBlock ~ handleFileReceived ~ file:", file)
+    private async handleFileSelected(file: File) {
         if (!this.config.uploadFile) {
             console.error("No uploadFile function provided in config.");
             return;
+        }
+        if (this.config.validateFile) {
+            const validationResult = this.config.validateFile(file);
+            if (validationResult !== true) {
+                const errorMessage = typeof validationResult === 'string' ? validationResult : this.api.i18n.t('Invalid file');
+                this.api.notifier.show({
+                    message: errorMessage,
+                    style: 'error',
+                });
+                return;
+            }
         }
         const loadingElement = this.renderLoadingElement(file);
 
@@ -260,7 +275,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
                 e.stopPropagation();
                 const file = fileInput.files?.[0];
                 if (!file) return;
-                this.handleFileReceived(file);
+                this.handleFileSelected(file);
                 fileInput.remove();
                 uploadButton.remove();
             });
