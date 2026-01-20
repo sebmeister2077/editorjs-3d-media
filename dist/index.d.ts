@@ -39,6 +39,11 @@ export type Media3DConfig = {
         iosSrcUrl?: string;
         posterUrl?: string;
     }>;
+    /**
+     * Enable caption below 3D viewer
+     * @default true
+     */
+    enableCaption: boolean;
 };
 export default class Editorjs360MediaBlock implements BlockTool {
     sanitize?: SanitizerConfig | undefined;
@@ -46,6 +51,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private config;
     private api;
     private wrapperElement;
+    private captionElement?;
     private block;
     private readOnly;
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>);

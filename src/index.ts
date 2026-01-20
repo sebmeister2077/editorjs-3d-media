@@ -1,6 +1,6 @@
 import EditorJS, { BlockTool, BlockToolConstructable, BlockToolData, PasteEvent, ConversionConfig, PasteConfig, SanitizerConfig, ToolboxConfig, ToolConfig, API, BlockAPI } from '@editorjs/editorjs'
 import { BlockToolConstructorOptions, MenuConfig, MoveEvent } from '@editorjs/editorjs/types/tools';
-import { ICON } from './icon';
+import { IconGlobe } from '@codexteam/icons'
 import './index.css';
 
 export type Media3DData = {
@@ -39,6 +39,11 @@ export type Media3DConfig = {
      * function to upload file to server
      */
     uploadFile?(file: File): Promise<{ url: string; iosSrcUrl?: string; posterUrl?: string }>;
+    /**
+     * Enable caption below 3D viewer
+     * @default true
+     */
+    enableCaption: boolean;
     // any other configuration options for the 3d viewer
 }
 
@@ -49,12 +54,14 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private config: Media3DConfig;
     private api: API;
     private wrapperElement: HTMLElement;
+    private captionElement?: HTMLElement;
     private block: BlockAPI;
     private readOnly: boolean;
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>) {
         const defaultConfig: Media3DConfig = {
             viewer: 'modelviewer',
             formatsAllowed: ['glb', 'gltf', 'usdz', 'obj', 'fbx', '3mf'],
+            enableCaption: true,
         }
         this.config = { ...defaultConfig, ...config };
         this._data = data ?? {}
@@ -63,6 +70,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
         this.block = block;
 
         this.wrapperElement = document.createElement('div');
+        this.wrapperElement.classList.add(this.CSS.wrapper);
         this.verify3DViewer();
     }
 
@@ -74,9 +82,15 @@ export default class Editorjs360MediaBlock implements BlockTool {
     }
 
     public set data(data: Media3DData) {
+        const hasAnythingChanged = JSON.stringify(this._data) !== JSON.stringify(data);
         this._data.file = data.file ?? null;
         this._data.caption = data.caption ?? "";
-        this._data.viewer = data.viewer
+        this._data.viewer = data.viewer;
+
+        if (!hasAnythingChanged) return;
+        if (this.captionElement)
+            this.captionElement.innerText = this._data.caption;
+        this.block.dispatchChange();
     }
     public get data(): Media3DData {
         return this._data;
@@ -84,12 +98,11 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
     public static get toolbox(): ToolboxConfig {
         return {
-            icon: ICON,
+            icon: IconGlobe,
             title: "3D Media"
         }
     }
     public save(block: HTMLElement): Media3DData {
-
         return this.data
     }
 
@@ -97,14 +110,13 @@ export default class Editorjs360MediaBlock implements BlockTool {
         if (!this.data || !this.data.file || !this.data.file.url) {
             if (this.readOnly) {
                 const noData = document.createTextNode(this.api.i18n.t('No 3D model provided'));
-                this.wrapperElement.appendChild(noData);
+                this.wrapperElement.replaceChildren(noData);
                 return this.wrapperElement;
             }
             this.renderUploadButton();
             return this.wrapperElement;
         }
 
-        const captionElement = this.drawCaptionElement();
         if (this.data.viewer === 'modelviewer') {
             const element = new DOMParser().parseFromString(/*html*/ `
                 <model-viewer model-viewer
@@ -121,12 +133,14 @@ export default class Editorjs360MediaBlock implements BlockTool {
                 element.setAttribute('ios-src', this.data.file.iosSrcUrl);
             if (this.data.file.posterUrl)
                 element.setAttribute('poster', this.data.file.posterUrl);
-            this.wrapperElement.replaceChildren(element, captionElement);
+            if (this.config.enableCaption) {
+                this.captionElement = this.drawCaptionElement();
+                this.wrapperElement.replaceChildren(...[element, this.captionElement].filter(Boolean));
+            }
             return this.wrapperElement;
         }
 
         return this.wrapperElement;
-
 
     }
 
@@ -140,6 +154,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
     private get CSS() {
         return {
+            wrapper: "cdx-3d-media",
             uploadButton: "cdx-3d-media-upload-button",
             temporaryPreview: "cdx-3d-media-temporary-preview",
             caption: "cdx-3d-media-caption",
@@ -255,8 +270,17 @@ export default class Editorjs360MediaBlock implements BlockTool {
         const captionElement = document.createElement('div');
         captionElement.contentEditable = String(!this.readOnly);
         captionElement.classList.add(this.CSS.caption);
-
+        captionElement.contentEditable = String(!this.readOnly);
         captionElement.innerText = this.data.caption || "";
+        captionElement.addEventListener('input', (e) => {
+            e.stopPropagation();
+            this.data = {
+                ...this.data,
+                caption: captionElement.innerText,
+            };
+        });
+        captionElement.dataset.placeholder = this.api.i18n.t("Caption");
+
 
         return captionElement;
     }

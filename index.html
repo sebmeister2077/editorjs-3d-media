@@ -26,15 +26,23 @@
             var editor = new EditorJS({
                 holder: 'editor',
                 tools: {
-                    media: {
+                    media3d: {
                         class: Editorjs3DMedia,
                         config: {
                             uploadFile(file) {
                                 // Your file uploading logic here
+                                const fileUrl = URL.createObjectURL(file)
+                                window.addEventListener(
+                                    'beforeunload',
+                                    () => {
+                                        URL.revokeObjectURL(fileUrl)
+                                    },
+                                    { once: true },
+                                )
                                 return new Promise((resolve) => {
                                     setTimeout(() => {
                                         resolve({
-                                            url: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+                                            url: fileUrl,
                                         })
                                     }, 2000)
                                 })
@@ -54,6 +62,8 @@
                 // readOnly: true,
                 onChange(api) {
                     api.saver.save().then((data) => {
+                        // remove media3d blocks
+                        data.blocks = data.blocks.filter((block) => block.type !== 'media3d')
                         localStorage.setItem(dataLocation, JSON.stringify(data))
                     })
                 },
@@ -69,5 +79,14 @@
                 },
             })
         </script>
+        <footer>
+            <p style="text-align: center; margin-top: 2em; color: gray">
+                Files are temporarily saved in browser memory. They will be lost when you refresh the page.
+            </p>
+            <p style="text-align: center; margin-top: 2em; color: gray">
+                You can find free example files to test the 3D media block at
+                <a href="https://github.khronos.org/glTF-Sample-Viewer-Release/" target="_blank">glTF-Sample-Viewer-Release</a>
+            </p>
+        </footer>
     </body>
 </html>
