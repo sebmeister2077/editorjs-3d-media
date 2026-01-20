@@ -105,7 +105,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
         this._data.viewer = data.viewer;
 
         if (!hasAnythingChanged) return;
-        if (this.captionElement)
+        if (this.captionElement && this.captionElement.innerText !== this._data.caption)
             this.captionElement.innerText = this._data.caption;
         this.block.dispatchChange();
     }
