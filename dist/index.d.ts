@@ -1,14 +1,19 @@
 import { BlockTool, SanitizerConfig, ToolboxConfig } from '@editorjs/editorjs';
 import { BlockToolConstructorOptions } from '@editorjs/editorjs/types/tools';
 import './index.css';
-export type Media3DData = {
+export type Media3DData<Attributes = {}> = {
     caption: string;
+    /**
+     * 3D viewer to use
+     */
     viewer: Viewer;
+    /**
+     * Additional attributes to add to the 3D viewer element
+     */
+    attributes?: Attributes;
 } & (ThreeJSData | ModelViewerData);
 type ModelViewerData = {
     file: {
-        posterUrl?: string;
-        iosSrcUrl?: string;
         url: string;
     };
 } & {
@@ -22,9 +27,9 @@ type ThreeJSData = {
     viewer: 'threejs';
 };
 type Viewer = 'threejs' | 'modelviewer';
-export type Media3DConfig = {
+export type Media3DConfig<Attributes = {}> = {
     /**
-     * 3D viewer to use
+     * 3D viewer to use when pasting urls
      * @example 'modelviewer' | 'threejs'
      * @default 'modelviewer'
      */
@@ -34,22 +39,23 @@ export type Media3DConfig = {
      */
     viewerStyle?: Partial<CSSStyleDeclaration>;
     /**
-     * allowed 3d model formats
+     * Allowed 3d model formats
      * @example ['glb','gltf','usdz','obj','fbx','3mf']
      * @default ['glb','gltf']
      */
     formatsAllowed: string[];
     /**
-     * function to upload file to server
+     * Function to upload file to server. Must return object with url and viewer type.
+     * Optionally can return other attributes to add to the 3D viewer element.
      */
     uploadFile?(file: File): Promise<{
         url: string;
-        iosSrcUrl?: string;
-        posterUrl?: string;
+        viewer: Viewer;
+        otherAttributes?: Attributes;
     }>;
     /**
-     * validate file before upload
-     * @return true if valid, string with error message if not valid
+     * Validate file before upload
+     * @return true if valid, false or string with error message if not valid
      */
     validateFile?(file: File): boolean | string;
     /**

@@ -3,16 +3,20 @@ import { BlockToolConstructorOptions, MenuConfig, MoveEvent } from '@editorjs/ed
 import { IconGlobe } from '@codexteam/icons'
 import './index.css';
 
-export type Media3DData = {
+export type Media3DData<Attributes = {}> = {
     caption: string;
-    // stretched: boolean;
+    /**
+     * 3D viewer to use
+     */
     viewer: Viewer;
+    /**
+     * Additional attributes to add to the 3D viewer element
+     */
+    attributes?: Attributes;
 } & (ThreeJSData | ModelViewerData);
 
 type ModelViewerData = {
     file: {
-        posterUrl?: string;
-        iosSrcUrl?: string;
         url: string;
     }
 } & { viewer: 'modelviewer' };
@@ -25,9 +29,9 @@ type ThreeJSData = {
 
 type Viewer = 'threejs' | 'modelviewer';
 
-export type Media3DConfig = {
+export type Media3DConfig<Attributes = {}> = {
     /**
-     * 3D viewer to use
+     * 3D viewer to use when pasting urls
      * @example 'modelviewer' | 'threejs'
      * @default 'modelviewer'
      */
@@ -37,18 +41,19 @@ export type Media3DConfig = {
      */
     viewerStyle?: Partial<CSSStyleDeclaration>;
     /**
-     * allowed 3d model formats
+     * Allowed 3d model formats
      * @example ['glb','gltf','usdz','obj','fbx','3mf']
      * @default ['glb','gltf']
      */
     formatsAllowed: string[]; // allowed 3d model formats
     /**
-     * function to upload file to server
+     * Function to upload file to server. Must return object with url and viewer type.
+     * Optionally can return other attributes to add to the 3D viewer element.
      */
-    uploadFile?(file: File): Promise<{ url: string; iosSrcUrl?: string; posterUrl?: string }>;
+    uploadFile?(file: File): Promise<{ url: string; viewer: Viewer; otherAttributes?: Attributes }>;
     /**
-     * validate file before upload
-     * @return true if valid, string with error message if not valid
+     * Validate file before upload
+     * @return true if valid, false or string with error message if not valid
      */
     validateFile?(file: File): boolean | string;
     /**
@@ -146,25 +151,36 @@ export default class Editorjs360MediaBlock implements BlockTool {
         }
 
         if (this.data.viewer === 'modelviewer') {
-            const element = new DOMParser().parseFromString(/*html*/ `
+            const viewerElement = new DOMParser().parseFromString(/*html*/ `
                 <model-viewer model-viewer
                     src="${this.data.file.url}"
-                    ios-src="path/to/model.usdz"
-                    alt="3D model description"
+                    alt="${this.api.i18n.t('A 3D model')}"
                     auto-rotate
                     camera-controls
                     style="width: 100%; height: 400px;">
                     </model-viewer>`, 'text/html').body.firstChild as HTMLElement;
 
-            Object.assign(element.style, this.config.viewerStyle);
-            if (this.data.file.iosSrcUrl)
-                element.setAttribute('ios-src', this.data.file.iosSrcUrl);
-            if (this.data.file.posterUrl)
-                element.setAttribute('poster', this.data.file.posterUrl);
+            Object.assign(viewerElement.style, this.config.viewerStyle);
+            //  for example posterUrl and iosSrcUrl
+            Object.keys(this.data.attributes || {}).forEach(key => {
+                viewerElement.setAttribute(key, (this.data.attributes as any)[key]);
+            });
+            viewerElement.addEventListener("error", (e) => {
+                console.error("Error rendering 3D model in model-viewer:", e);
+                this.api.notifier.show({
+                    message: this.api.i18n.t('Error rendering 3D model'),
+                    style: 'error',
+                });
+                viewerElement.replaceWith(document.createTextNode(this.api.i18n.t('Error rendering 3D model')));
+            });
+
+            const childrenToAppend = [viewerElement];
+
             if (this.config.enableCaption) {
                 this.captionElement = this.drawCaptionElement();
-                this.wrapperElement.replaceChildren(...[element, this.captionElement].filter(Boolean));
+                childrenToAppend.push(this.captionElement);
             }
+            this.wrapperElement.replaceChildren(...childrenToAppend);
             return this.wrapperElement;
         }
 
@@ -192,7 +208,6 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
     // renderSettings?(): HTMLElement | MenuConfig {
     //     // throw new Error('Method not implemented.');
-    // https://github.com/editor-js/image/blob/c8236e5765294f6b6590573910a68d3826671838/src/index.ts#L226
     // }
     validate(blockData: Media3DData): boolean {
         // Block is not saved if it returns false
@@ -251,14 +266,15 @@ export default class Editorjs360MediaBlock implements BlockTool {
         const loadingElement = this.renderLoadingElement(file);
 
         try {
-            const fileData = await this.config.uploadFile(file);
+            const { viewer, url, ...otherAttributes } = await this.config.uploadFile(file);
             this.data = {
                 ...this.data,
                 file: {
-                    ...fileData
+                    url
                 },
                 caption: this.data.caption || "",
-                viewer: this.config.viewer,
+                viewer: viewer,
+                attributes: otherAttributes || {},
             };
         }
         catch (err) {
