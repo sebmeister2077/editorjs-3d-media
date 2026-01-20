@@ -49,13 +49,16 @@ export type Media3DConfig = {
      * @default true
      */
     enableCaption: boolean;
-
     /**
      * Custom loader element while uploading
      * @param file {File}
      */
     customLoaderElement?(file: File): HTMLElement;
-    // any other configuration options for the 3d viewer
+    /**
+     * Automatically open file picker on first render when there is no data
+     * @default true
+     */
+    autoOpenFilePicker?: boolean;
 }
 
 
@@ -68,11 +71,14 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private captionElement?: HTMLElement;
     private block: BlockAPI;
     private readOnly: boolean;
+    private _isFirstRender: boolean = true;
+
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>) {
         const defaultConfig: Media3DConfig = {
             viewer: 'modelviewer',
             formatsAllowed: ['glb', 'gltf', 'usdz', 'obj', 'fbx', '3mf'],
             enableCaption: true,
+            autoOpenFilePicker: true,
         }
         this.config = { ...defaultConfig, ...config };
         this._data = data ?? {}
@@ -118,13 +124,15 @@ export default class Editorjs360MediaBlock implements BlockTool {
     }
 
     public render(): HTMLElement | Promise<HTMLElement> {
+        const autoOpenPicker = this.config.autoOpenFilePicker && this._isFirstRender && !this.readOnly;
+        this._isFirstRender = false;
         if (!this.data || !this.data.file || !this.data.file.url) {
             if (this.readOnly) {
                 const noData = document.createTextNode(this.api.i18n.t('No 3D model provided'));
                 this.wrapperElement.replaceChildren(noData);
                 return this.wrapperElement;
             }
-            this.renderUploadButton();
+            this.renderUploadButton(autoOpenPicker);
             return this.wrapperElement;
         }
 
@@ -260,10 +268,10 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
     //#region Drawing elements
 
-    private renderUploadButton() {
+    private renderUploadButton(autoOpenPicker: boolean = false) {
         const uploadButton = document.createElement('div');
         uploadButton.classList.add(this.CSS.uploadButton);
-        // uploadButton.appendChild()//icon
+        uploadButton.insertAdjacentHTML('beforeend', /*html*/ IconGlobe);
         uploadButton.appendChild(document.createTextNode(this.api.i18n.t('Select 3D model')));
         uploadButton.addEventListener('click', async () => {
             const fileInput = document.createElement('input');
@@ -284,6 +292,11 @@ export default class Editorjs360MediaBlock implements BlockTool {
             fileInput.click();
 
         });
+        if (autoOpenPicker) {
+            queueMicrotask(() => {
+                uploadButton.click();
+            });
+        }
 
         this.wrapperElement.replaceChildren(uploadButton);
     }

@@ -54,6 +54,11 @@ export type Media3DConfig = {
      * @param file {File}
      */
     customLoaderElement?(file: File): HTMLElement;
+    /**
+     * Automatically open file picker on first render when there is no data
+     * @default true
+     */
+    autoOpenFilePicker?: boolean;
 };
 export default class Editorjs360MediaBlock implements BlockTool {
     sanitize?: SanitizerConfig | undefined;
@@ -64,6 +69,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private captionElement?;
     private block;
     private readOnly;
+    private _isFirstRender;
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>);
     static get isReadOnlySupported(): boolean;
     get isInline(): boolean;
