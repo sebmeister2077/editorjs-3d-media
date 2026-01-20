@@ -23,12 +23,20 @@ type ThreeJSData = {
 };
 type Viewer = 'threejs' | 'modelviewer';
 export type Media3DConfig = {
+    /**
+     * 3D viewer to use
+     * @example 'modelviewer' | 'threejs'
+     * @default 'modelviewer'
+     */
     viewer: Viewer;
+    /** Custom styles for 3D viewer element
+     * @example { width: '100%', height: '400px', borderRadius: '8px' }
+     */
     viewerStyle?: Partial<CSSStyleDeclaration>;
     /**
      * allowed 3d model formats
      * @example ['glb','gltf','usdz','obj','fbx','3mf']
-     * @default ['glb','gltf','usdz','obj','fbx','3mf']
+     * @default ['glb','gltf']
      */
     formatsAllowed: string[];
     /**

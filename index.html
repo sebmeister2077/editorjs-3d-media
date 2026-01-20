@@ -31,9 +31,17 @@
                     media3d: {
                         class: Editorjs3DMedia,
                         config: {
+                            // viewerStyle: {
+                            //     width: '100%',
+                            //     height: '500px',
+                            //     borderRadius: '8px',
+                            //     backgroundColor: '#f0f0f0',
+                            // },
                             uploadFile(file) {
                                 // Your file uploading logic here
+                                console.log('Uploading file:', file)
                                 const fileUrl = URL.createObjectURL(file)
+                                console.log('File URL:', fileUrl)
                                 window.addEventListener(
                                     'beforeunload',
                                     () => {

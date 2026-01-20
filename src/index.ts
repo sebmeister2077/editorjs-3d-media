@@ -26,13 +26,20 @@ type ThreeJSData = {
 type Viewer = 'threejs' | 'modelviewer';
 
 export type Media3DConfig = {
-    // in which way to render it: model viewer from google, three.js based viewer, or other
+    /**
+     * 3D viewer to use
+     * @example 'modelviewer' | 'threejs'
+     * @default 'modelviewer'
+     */
     viewer: Viewer;
+    /** Custom styles for 3D viewer element
+     * @example { width: '100%', height: '400px', borderRadius: '8px' }
+     */
     viewerStyle?: Partial<CSSStyleDeclaration>;
     /**
      * allowed 3d model formats
      * @example ['glb','gltf','usdz','obj','fbx','3mf']
-     * @default ['glb','gltf','usdz','obj','fbx','3mf']
+     * @default ['glb','gltf']
      */
     formatsAllowed: string[]; // allowed 3d model formats
     /**
@@ -76,7 +83,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>) {
         const defaultConfig: Media3DConfig = {
             viewer: 'modelviewer',
-            formatsAllowed: ['glb', 'gltf', 'usdz', 'obj', 'fbx', '3mf'],
+            formatsAllowed: ['glb', 'gltf'],
             enableCaption: true,
             autoOpenFilePicker: true,
         }
@@ -88,7 +95,9 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
         this.wrapperElement = document.createElement('div');
         this.wrapperElement.classList.add(this.CSS.wrapper);
-        this.verify3DViewer();
+        if (this.block.id) {
+            this.verify3DViewer();
+        }
     }
 
     public static get isReadOnlySupported() {
