@@ -184,6 +184,12 @@ export default class Editorjs360MediaBlock implements BlockTool {
             return this.wrapperElement;
         }
 
+        if (this.data.viewer === 'threejs') {
+            const notSupported = document.createTextNode(this.api.i18n.t('ThreeJS viewer is not supported yet.'));
+            this.wrapperElement.replaceChildren(notSupported);
+            return this.wrapperElement;
+        }
+
         return this.wrapperElement;
 
     }

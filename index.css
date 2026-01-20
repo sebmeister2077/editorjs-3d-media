@@ -10,3 +10,8 @@
   footer a {
       color: #3b82f6;
   }
+
+  #output {
+      width: 100%;
+      min-height: 200px;
+  }
