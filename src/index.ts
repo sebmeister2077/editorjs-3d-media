@@ -44,6 +44,12 @@ export type Media3DConfig = {
      * @default true
      */
     enableCaption: boolean;
+
+    /**
+     * Custom loader element while uploading
+     * @param file {File}
+     */
+    customLoaderElement?(file: File): HTMLElement;
     // any other configuration options for the 3d viewer
 }
 
@@ -156,7 +162,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
         return {
             wrapper: "cdx-3d-media",
             uploadButton: "cdx-3d-media-upload-button",
-            temporaryPreview: "cdx-3d-media-temporary-preview",
+            loader: "cdx-3d-media-loader",
             caption: "cdx-3d-media-caption",
             tool: "3d-media-tool"
         }
@@ -204,13 +210,16 @@ export default class Editorjs360MediaBlock implements BlockTool {
     // }
 
 
-    private handleFileReceived(file: File) {
+    private async handleFileReceived(file: File) {
+        console.log("🚀 ~ Editorjs360MediaBlock ~ handleFileReceived ~ file:", file)
         if (!this.config.uploadFile) {
             console.error("No uploadFile function provided in config.");
             return;
         }
-        const loadingElement = this.renderLoadingElement();
-        this.config.uploadFile(file).then((fileData) => {
+        const loadingElement = this.renderLoadingElement(file);
+
+        try {
+            const fileData = await this.config.uploadFile(file);
             this.data = {
                 ...this.data,
                 file: {
@@ -219,11 +228,18 @@ export default class Editorjs360MediaBlock implements BlockTool {
                 caption: this.data.caption || "",
                 viewer: this.config.viewer,
             };
-        }).catch((err) => {
+        }
+        catch (err) {
+            this.api.notifier.show({
+                message: this.api.i18n.t('Error uploading 3D model'),
+                style: 'error',
+            })
             console.error("Error uploading 3D model:", err);
-        }).finally(() => {
+
+        }
+        finally {
             this.render();
-        })
+        }
     }
 
 
@@ -257,9 +273,15 @@ export default class Editorjs360MediaBlock implements BlockTool {
         this.wrapperElement.replaceChildren(uploadButton);
     }
 
-    private renderLoadingElement() {
+    private renderLoadingElement(file: File) {
+        if (this.config.customLoaderElement) {
+            const customLoader = this.config.customLoaderElement(file);
+            this.wrapperElement.replaceChildren(customLoader);
+            return customLoader;
+        }
+
         const loadingElement = document.createElement('div');
-        loadingElement.classList.add(this.CSS.temporaryPreview);
+        loadingElement.classList.add(this.CSS.loader);
 
         this.wrapperElement.replaceChildren(loadingElement);
 

@@ -44,6 +44,11 @@ export type Media3DConfig = {
      * @default true
      */
     enableCaption: boolean;
+    /**
+     * Custom loader element while uploading
+     * @param file {File}
+     */
+    customLoaderElement?(file: File): HTMLElement;
 };
 export default class Editorjs360MediaBlock implements BlockTool {
     sanitize?: SanitizerConfig | undefined;

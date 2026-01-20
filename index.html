@@ -15,6 +15,8 @@
     </head>
     <body>
         <div id="editor" style="background-color: antiquewhite"></div>
+        <button id="toggleReadOnly">Toggle readOnly</button>
+
         <script>
             const Editorjs3DMedia = self.Editorjs3DMedia
             const dataLocation = 'editorjs-data-testing'
@@ -77,6 +79,9 @@
                         },
                     },
                 },
+            })
+            document.getElementById('toggleReadOnly').addEventListener('click', () => {
+                editor.readOnly.toggle()
             })
         </script>
         <footer>
