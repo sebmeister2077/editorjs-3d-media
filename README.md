@@ -2,6 +2,8 @@
 
 An [EditorJS](https://editorjs.io/) block tool for displaying interactive 3D models in various formats (glTF, GLB, USDZ, and more). Perfect for e-commerce product displays, educational content, engineering documentation, and WebXR experiences.
 
+[**📺 Live Demo**](https://sebmeister2077.github.io/editorjs-3d-media/)
+
 ## Features
 
 - 📦 **Multiple 3D formats** - Support for GLB, glTF, USDZ, OBJ, FBX, and more

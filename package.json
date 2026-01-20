@@ -1,6 +1,6 @@
 {
     "name": "editorjs-3d-media",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "description": "EditorJS block to display 3d objects in various formats (gltf, glb, obj, fbx, stl).",
     "scripts": {
         "build": "webpack --mode production",
