@@ -2,7 +2,8 @@ import EditorJS, { BlockTool, BlockToolConstructable, BlockToolData, PasteEvent,
 import { BlockToolConstructorOptions, MenuConfig, MoveEvent } from '@editorjs/editorjs/types/tools';
 import { IconGlobe } from '@codexteam/icons'
 import './index.css';
-import { DownloadIcon } from './icons';
+import { DownloadIcon, UploadIcon } from './icons';
+import { ThreejsRenderer } from './threejsRenderer';
 
 export type Media3DData<Attributes = {}> = {
     caption: string;
@@ -19,12 +20,14 @@ export type Media3DData<Attributes = {}> = {
 type ModelViewerData = {
     file: {
         url: string;
+        extension: string;
     }
 } & { viewer: 'modelviewer' };
 
 type ThreeJSData = {
     file: {
         url: string;
+        extension: string;
     }
 } & { viewer: 'threejs' };
 
@@ -51,7 +54,17 @@ export type Media3DConfig<Attributes = {}> = {
      * Function to upload file to server. Must return object with url and viewer type.
      * Optionally can return other attributes to add to the 3D viewer element.
      */
-    uploadFile?(file: File): Promise<{ url: string; viewer: Viewer; otherAttributes?: Attributes }>;
+    uploadFile?(file: File): Promise<{
+        url: string;
+        //TODO remove this because it is temporary, i am using URL.createObjectURL in dev mode
+        extension: string;
+        viewer: Viewer;
+        /**
+         * Other attributes to add to the 3D viewer element
+         * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' }
+         */
+        otherAttributes?: Attributes
+    }>;
     /**
      * Validate file before upload
      * @return true if valid, false or string with error message if not valid
@@ -77,6 +90,7 @@ export type Media3DConfig<Attributes = {}> = {
      * @default false
      */
     enableDownload: boolean;
+    // TODO custom handles for threejs viewer
 }
 
 
@@ -199,8 +213,22 @@ export default class Editorjs360MediaBlock implements BlockTool {
         }
 
         if (this.data.viewer === 'threejs') {
-            const notSupported = document.createTextNode(this.api.i18n.t('ThreeJS viewer is not supported yet.'));
-            this.wrapperElement.replaceChildren(notSupported);
+            const rendered = new ThreejsRenderer({ api: this.api, config: this.config });
+            const format = this.data.file.extension
+            const requiresExtraAssets = rendered.requiresExtraAssets(format);
+            if (requiresExtraAssets) {
+
+                const threejsUploadElement = rendered.renderUploaderFormat(this.data.file.url, format);
+                this.wrapperElement.replaceChildren(threejsUploadElement);
+            }
+            else {
+                const viewerElement = rendered.renderViewerFormat(format, this.data.file.url, this.data.attributes);
+                Object.assign(viewerElement.style, this.config.viewerStyle);
+                this.wrapperElement.replaceChildren(viewerElement);
+            }
+
+            // const notSupported = document.createTextNode(this.api.i18n.t('ThreeJS viewer is not supported yet.'));
+            // this.wrapperElement.replaceChildren(notSupported);
             return this.wrapperElement;
         }
 
@@ -297,11 +325,12 @@ export default class Editorjs360MediaBlock implements BlockTool {
         const loadingElement = this.renderLoadingElement(file);
 
         try {
-            const { viewer, url, ...otherAttributes } = await this.config.uploadFile(file);
+            const { viewer, url, extension, ...otherAttributes } = await this.config.uploadFile(file);
             this.data = {
                 ...this.data,
                 file: {
-                    url
+                    url,
+                    extension
                 },
                 caption: this.data.caption || "",
                 viewer: viewer,
@@ -327,7 +356,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private renderUploadButton(autoOpenPicker: boolean = false) {
         const uploadButton = document.createElement('div');
         uploadButton.classList.add(this.CSS.uploadButton);
-        uploadButton.insertAdjacentHTML('beforeend', /*html*/ IconGlobe);
+        uploadButton.insertAdjacentHTML('beforeend', /*html*/ UploadIcon);
         uploadButton.appendChild(document.createTextNode(this.api.i18n.t('Select 3D model')));
         uploadButton.addEventListener('click', async () => {
             const fileInput = document.createElement('input');

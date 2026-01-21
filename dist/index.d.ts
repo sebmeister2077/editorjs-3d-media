@@ -15,6 +15,7 @@ export type Media3DData<Attributes = {}> = {
 type ModelViewerData = {
     file: {
         url: string;
+        extension: string;
     };
 } & {
     viewer: 'modelviewer';
@@ -22,6 +23,7 @@ type ModelViewerData = {
 type ThreeJSData = {
     file: {
         url: string;
+        extension: string;
     };
 } & {
     viewer: 'threejs';
@@ -50,7 +52,12 @@ export type Media3DConfig<Attributes = {}> = {
      */
     uploadFile?(file: File): Promise<{
         url: string;
+        extension: string;
         viewer: Viewer;
+        /**
+         * Other attributes to add to the 3D viewer element
+         * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' }
+         */
         otherAttributes?: Attributes;
     }>;
     /**

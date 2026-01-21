@@ -71,9 +71,11 @@
                                 //     borderRadius: '8px',
                                 //     backgroundColor: '#f0f0f0',
                                 // },
+                                formatsAllowed: ['obj'],
                                 enableDownload: true,
                                 uploadFile(file) {
                                     // Your file uploading logic here
+                                    const extension = file.name.split('.').pop().toLowerCase()
                                     const fileUrl = URL.createObjectURL(file)
                                     window.addEventListener(
                                         'beforeunload',
@@ -86,7 +88,8 @@
                                         setTimeout(() => {
                                             resolve({
                                                 url: fileUrl,
-                                                viewer: 'modelviewer',
+                                                extension,
+                                                viewer: 'threejs', // or 'modelviewer'
                                             })
                                         }, 1500)
                                     })

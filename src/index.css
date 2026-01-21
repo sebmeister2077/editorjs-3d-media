@@ -109,3 +109,35 @@ a.cdx-3d-media-download {
     -ms-border-radius: 6px;
     -o-border-radius: 6px;
 }
+
+
+.cdx-3d-media-threejs-uploader-wrapper {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.cdx-3d-media-threejs-upload-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 13px;
+    border-radius: 3px;
+    border: 1px solid rgba(201, 201, 204, .48);
+    font-size: 14.9px;
+    background: #fff;
+    -webkit-box-shadow: 0 2px 2px 0 rgba(18, 30, 57, .04);
+    box-shadow: 0 2px 2px #121e390a;
+    color: #707684;
+    text-align: center;
+    cursor: pointer;
+    gap: 6px;
+}
+
+.cdx-3d-media-threejs-upload-button svg {
+    color: black;
+}
+
+.cdx-3d-media-threejs-upload-button svg.upload {
+    color: transparent;
+}
