@@ -27,8 +27,16 @@
         <div id="editor" style="background-color: antiquewhite"></div>
         <button id="toggleReadOnly">Toggle readOnly</button>
 
-        <!-- <input id="loadFile" type="file" accept=".glb,.gltf,.fbx" style="width: 600px; height: 400px" />
-        <div id="output"></div> -->
+        <!-- <input id="loadFile" type="file" accept=".glb,.gltf,.fbx,.obj" style="width: 300px; height: 40px; color: white" />
+        <div id="output"></div>
+        <input
+            id="textureFiles"
+            type="file"
+            multiple="true"
+            accept=".mtl,.jpg"
+            placeholder="MTL file"
+            style="width: 160px; height: 40px; color: aliceblue"
+        /> -->
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 // document.body.style.opacity = '1'
@@ -45,6 +53,7 @@
                         },
                     ],
                 }
+                return
                 let data = defaultData
                 try {
                     const storedItem = localStorage.getItem(dataLocation)
