@@ -53,7 +53,7 @@
                         },
                     ],
                 }
-                return
+                // return
                 let data = defaultData
                 try {
                     const storedItem = localStorage.getItem(dataLocation)
@@ -71,6 +71,7 @@
                                 //     borderRadius: '8px',
                                 //     backgroundColor: '#f0f0f0',
                                 // },
+                                enableDownload: true,
                                 uploadFile(file) {
                                     // Your file uploading logic here
                                     const fileUrl = URL.createObjectURL(file)

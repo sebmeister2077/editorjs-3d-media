@@ -1,4 +1,4 @@
-import { BlockTool, SanitizerConfig, ToolboxConfig } from '@editorjs/editorjs';
+import { BlockTool, ToolboxConfig } from '@editorjs/editorjs';
 import { BlockToolConstructorOptions } from '@editorjs/editorjs/types/tools';
 import './index.css';
 export type Media3DData<Attributes = {}> = {
@@ -73,9 +73,13 @@ export type Media3DConfig<Attributes = {}> = {
      * @default true
      */
     autoOpenFilePicker?: boolean;
+    /**
+     * Enable download button for 3D models
+     * @default false
+     */
+    enableDownload: boolean;
 };
 export default class Editorjs360MediaBlock implements BlockTool {
-    sanitize?: SanitizerConfig | undefined;
     private _data;
     private config;
     private api;
@@ -99,6 +103,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private renderUploadButton;
     private renderLoadingElement;
     private drawCaptionElement;
+    private drawDownloadButton;
     private verify3DViewer;
 }
 export {};

@@ -3,6 +3,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    position: relative;
 }
 
 .cdx-3d-media-upload-button {
@@ -85,4 +86,26 @@
     color: #a9abb4;
     pointer-events: none;
     display: block;
+}
+
+a.cdx-3d-media-download {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(201, 201, 204, .48);
+    background: hsla(0, 0%, 100%, .8);
+    -webkit-box-shadow: 0 2px 2px 0 rgba(18, 30, 57, .04);
+    box-shadow: 0 2px 2px #121e390a;
+    color: transparent;
+    cursor: pointer;
+    position: absolute;
+    top: 16px;
+    right: 10px;
+    text-decoration: none;
+    -webkit-border-radius: 6px;
+    -moz-border-radius: 6px;
+    -ms-border-radius: 6px;
+    -o-border-radius: 6px;
 }

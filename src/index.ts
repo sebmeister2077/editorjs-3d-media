@@ -2,6 +2,7 @@ import EditorJS, { BlockTool, BlockToolConstructable, BlockToolData, PasteEvent,
 import { BlockToolConstructorOptions, MenuConfig, MoveEvent } from '@editorjs/editorjs/types/tools';
 import { IconGlobe } from '@codexteam/icons'
 import './index.css';
+import { DownloadIcon } from './icons';
 
 export type Media3DData<Attributes = {}> = {
     caption: string;
@@ -71,11 +72,15 @@ export type Media3DConfig<Attributes = {}> = {
      * @default true
      */
     autoOpenFilePicker?: boolean;
+    /**
+     * Enable download button for 3D models
+     * @default false
+     */
+    enableDownload: boolean;
 }
 
 
 export default class Editorjs360MediaBlock implements BlockTool {
-    public sanitize?: SanitizerConfig | undefined;
     private _data: Media3DData;
     private config: Media3DConfig;
     private api: API;
@@ -91,6 +96,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
             formatsAllowed: ['glb', 'gltf'],
             enableCaption: true,
             autoOpenFilePicker: true,
+            enableDownload: false,
         }
         this.config = { ...defaultConfig, ...config };
         this._data = data ?? {}
@@ -108,9 +114,11 @@ export default class Editorjs360MediaBlock implements BlockTool {
     public static get isReadOnlySupported() {
         return true;
     }
+
     public get isInline() {
         return false;
     }
+
 
     public set data(data: Media3DData) {
         const hasAnythingChanged = JSON.stringify(this._data) !== JSON.stringify(data);
@@ -123,6 +131,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
             this.captionElement.innerText = this._data.caption;
         this.block.dispatchChange();
     }
+
     public get data(): Media3DData {
         return this._data;
     }
@@ -149,6 +158,8 @@ export default class Editorjs360MediaBlock implements BlockTool {
             this.renderUploadButton(autoOpenPicker);
             return this.wrapperElement;
         }
+
+        const downloadButton = this.drawDownloadButton();
 
         if (this.data.viewer === 'modelviewer') {
             const viewerElement = new DOMParser().parseFromString(/*html*/ `
@@ -181,6 +192,9 @@ export default class Editorjs360MediaBlock implements BlockTool {
                 childrenToAppend.push(this.captionElement);
             }
             this.wrapperElement.replaceChildren(...childrenToAppend);
+            if (downloadButton) {
+                this.wrapperElement.appendChild(downloadButton);
+            }
             return this.wrapperElement;
         }
 
@@ -208,17 +222,28 @@ export default class Editorjs360MediaBlock implements BlockTool {
             uploadButton: "cdx-3d-media-upload-button",
             loader: "cdx-3d-media-loader",
             caption: "cdx-3d-media-caption",
-            tool: "3d-media-tool"
+            download: "cdx-3d-media-download",
         }
     }
 
     // renderSettings?(): HTMLElement | MenuConfig {
+    //     return [{
+    //         children: [],
+    //         element: document.createElement('div'),
+    //         title: '3D Media Settings',
+    //         name: '3dMediaSettings'
+    //     }] as MenuConfig
     //     // throw new Error('Method not implemented.');
     // }
     validate(blockData: Media3DData): boolean {
         // Block is not saved if it returns false
         return Boolean(blockData?.file?.url && blockData.file.url.trim() !== '' && blockData.viewer);
     }
+
+    // public get sanitize(): SanitizerConfig | undefined {
+    //     return undefined;
+    // }
+
     // public merge?(blockData: Media3DData): void {
     //     // throw new Error('Method not implemented.');
     // }
@@ -364,6 +389,20 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
 
         return captionElement;
+    }
+
+    private drawDownloadButton() {
+        if (!this.config.enableDownload || !this.readOnly)
+            return null;
+
+        const downloadButton = document.createElement('a');
+        downloadButton.href = this.data.file.url;
+        downloadButton.classList.add(this.CSS.download);
+        downloadButton.title = this.api.i18n.t('Download 3D model');
+        downloadButton.setAttribute('download', '');
+        downloadButton.insertAdjacentHTML('beforeend', DownloadIcon);
+
+        return downloadButton;
     }
 
 
