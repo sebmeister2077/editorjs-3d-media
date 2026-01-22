@@ -2,40 +2,35 @@ import EditorJS, { BlockTool, BlockToolConstructable, BlockToolData, PasteEvent,
 import { BlockToolConstructorOptions, MenuConfig, MoveEvent } from '@editorjs/editorjs/types/tools';
 import { IconGlobe } from '@codexteam/icons'
 import './index.css';
-import { DownloadIcon, UploadIcon } from './icons';
+import { DownloadIcon, UploadIcon, } from './icons';
 import { ThreejsRenderer } from './threejsRenderer';
 
-export type Media3DData<Attributes = {}> = {
+export type Media3DData<Attributes = {}, Type extends "threejs" | "modelviewer" | undefined = undefined> = {
     caption: string;
-    /**
-     * 3D viewer to use
-     */
-    viewer: Viewer;
     /**
      * Additional attributes to add to the 3D viewer element
      */
     attributes?: Attributes;
-} & (ThreeJSData | ModelViewerData);
+} & (Type extends undefined ? (ThreeJSData | ModelViewerData) :
+    Type extends "modelviewer" ? ModelViewerData :
+    Type extends "threejs" ? ThreeJSData : {})
 
 type ModelViewerData = {
-    file: {
-        url: string;
-        extension: string;
-    }
+    file: FileUrl
 } & { viewer: 'modelviewer' };
 
 type ThreeJSData = {
-    file: {
-        url: string;
-        extension: string;
-    }
+    file: FileUrl;
+    secondaryFiles?: FileUrl[];
 } & { viewer: 'threejs' };
 
 type Viewer = 'threejs' | 'modelviewer';
 
-export type Media3DConfig<Attributes = {}> = {
+export type Media3DConfig = Partial<Media3DLocalConfig>;
+export type Media3DLocalConfig<Attributes = {}> = {
     /**
-     * 3D viewer to use when pasting urls
+     * Preferred 3D viewer to use when pasting urls
+     * This of course depends on the format being supported by the viewer
      * @example 'modelviewer' | 'threejs'
      * @default 'modelviewer'
      */
@@ -54,49 +49,64 @@ export type Media3DConfig<Attributes = {}> = {
      * Function to upload file to server. Must return object with url and viewer type.
      * Optionally can return other attributes to add to the 3D viewer element.
      */
-    uploadFile?(file: File): Promise<{
-        url: string;
-        //TODO remove this because it is temporary, i am using URL.createObjectURL in dev mode
-        extension: string;
+    uploadFile?(file: File): Promise<FileUrl & {
         viewer: Viewer;
         /**
          * Other attributes to add to the 3D viewer element
          * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' }
-         */
+        */
         otherAttributes?: Attributes
     }>;
     /**
      * Validate file before upload
      * @return true if valid, false or string with error message if not valid
-     */
+    */
     validateFile?(file: File): boolean | string;
     /**
      * Enable caption below 3D viewer
-     * @default true
-     */
+      * @default true
+    */
     enableCaption: boolean;
     /**
      * Custom loader element while uploading
      * @param file {File}
-     */
+    */
     customLoaderElement?(file: File): HTMLElement;
     /**
-     * Automatically open file picker on first render when there is no data
-     * @default true
-     */
+      * Automatically open file picker on first render when there is no data
+      * @default true
+      */
     autoOpenFilePicker?: boolean;
     /**
      * Enable download button for 3D models
      * @default false
-     */
+    */
     enableDownload: boolean;
+    /**
+     * Prepare threejs import before it's used in viewer. Useful for optimization.
+     * This is useful in case you dont want to use threejs at all or dont have it installed.
+     * @example
+     * prepareThreejsImport: true will dynamically import threejs when needed.
+     * prepareThreejsImport: false will disable threejs viewer.
+     * @default true
+     */
+    prepareThreejsImport?: boolean;
     // TODO custom handles for threejs viewer
+
+    threejsConfig?: {
+        uploadSecondaryFiles(secondaryFiles: File[], type: "required" | "optional"): Promise<FileUrl[]>;
+    }
 }
 
+export type FileUrl = {
+    url: string;
+    //TODO remove this because it is temporary, i am using URL.createObjectURL in dev mode
+    extension: string;
+}
 
 export default class Editorjs360MediaBlock implements BlockTool {
     private _data: Media3DData;
-    private config: Media3DConfig;
+    private config: Media3DLocalConfig;
     private api: API;
     private wrapperElement: HTMLElement;
     private captionElement?: HTMLElement;
@@ -104,8 +114,8 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private readOnly: boolean;
     private _isFirstRender: boolean = true;
 
-    constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>) {
-        const defaultConfig: Media3DConfig = {
+    constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DLocalConfig>) {
+        const defaultConfig: Media3DLocalConfig = {
             viewer: 'modelviewer',
             formatsAllowed: ['glb', 'gltf'],
             enableCaption: true,
@@ -139,6 +149,11 @@ export default class Editorjs360MediaBlock implements BlockTool {
         this._data.file = data.file ?? null;
         this._data.caption = data.caption ?? "";
         this._data.viewer = data.viewer;
+        this._data.attributes = data.attributes ?? {};
+        if (data.viewer === 'threejs') {
+            (this._data as Media3DData<{}, "threejs">).secondaryFiles = data.secondaryFiles ?? [];
+        }
+
 
         if (!hasAnythingChanged) return;
         if (this.captionElement && this.captionElement.innerText !== this._data.caption)
@@ -161,9 +176,11 @@ export default class Editorjs360MediaBlock implements BlockTool {
     }
 
     public render(): HTMLElement | Promise<HTMLElement> {
+        console.log("🚀 ~ Editorjs360MediaBlock.render ~ this.data:", this.data)
         const autoOpenPicker = this.config.autoOpenFilePicker && this._isFirstRender && !this.readOnly;
         this._isFirstRender = false;
-        if (!this.data || !this.data.file || !this.data.file.url) {
+        const data = this.data;
+        if (!data || !data.file || !data.file.url) {
             if (this.readOnly) {
                 const noData = document.createTextNode(this.api.i18n.t('No 3D model provided'));
                 this.wrapperElement.replaceChildren(noData);
@@ -175,10 +192,10 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
         const downloadButton = this.drawDownloadButton();
 
-        if (this.data.viewer === 'modelviewer') {
+        if (data.viewer === 'modelviewer') {
             const viewerElement = new DOMParser().parseFromString(/*html*/ `
                 <model-viewer model-viewer
-                    src="${this.data.file.url}"
+                    src="${data.file.url}"
                     alt="${this.api.i18n.t('A 3D model')}"
                     auto-rotate
                     camera-controls
@@ -187,8 +204,8 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
             Object.assign(viewerElement.style, this.config.viewerStyle);
             //  for example posterUrl and iosSrcUrl
-            Object.keys(this.data.attributes || {}).forEach(key => {
-                viewerElement.setAttribute(key, (this.data.attributes as any)[key]);
+            Object.keys(data.attributes || {}).forEach(key => {
+                viewerElement.setAttribute(key, (data.attributes as any)[key]);
             });
             viewerElement.addEventListener("error", (e) => {
                 console.error("Error rendering 3D model in model-viewer:", e);
@@ -212,17 +229,30 @@ export default class Editorjs360MediaBlock implements BlockTool {
             return this.wrapperElement;
         }
 
-        if (this.data.viewer === 'threejs') {
+        if (data.viewer === 'threejs') {
             const rendered = new ThreejsRenderer({ api: this.api, config: this.config });
-            const format = this.data.file.extension
+            const format = data.file.extension
             const requiresExtraAssets = rendered.requiresExtraAssets(format);
             if (requiresExtraAssets) {
 
-                const threejsUploadElement = rendered.renderUploaderFormat(this.data.file.url, format);
+                const threejsUploadElement = rendered.renderUploaderFormat(data.file.url, format, data.secondaryFiles ?? [], (files, type) => {
+                    if (!this.config.threejsConfig?.uploadSecondaryFiles) {
+                        console.error("No uploadSecondaryFiles function provided in threejsConfig.");
+                        return;
+                    }
+                    this.config.threejsConfig?.uploadSecondaryFiles(files, type).then(urls => {
+                        this.data = {
+                            ...this.data,
+                            viewer: 'threejs',
+                            secondaryFiles: [...(data.secondaryFiles ?? []), ...urls].flat(),
+                        };
+                        this.render();
+                    })
+                });
                 this.wrapperElement.replaceChildren(threejsUploadElement);
             }
             else {
-                const viewerElement = rendered.renderViewerFormat(format, this.data.file.url, this.data.attributes);
+                const viewerElement = rendered.renderViewerFormat(format, data.file.url, data.secondaryFiles ?? []);
                 Object.assign(viewerElement.style, this.config.viewerStyle);
                 this.wrapperElement.replaceChildren(viewerElement);
             }

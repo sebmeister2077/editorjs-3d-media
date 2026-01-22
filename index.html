@@ -11,6 +11,11 @@
             // select between dev-build.js and bundle.js based on localhost or not
             const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
             const script = document.createElement('script')
+            window.isScriptLoadded = false
+
+            script.onload = () => {
+                window.isScriptLoadded = true
+            }
             if (isLocal) {
                 script.src = './dist/dev-build.js'
             } else {
@@ -38,7 +43,13 @@
             style="width: 160px; height: 40px; color: aliceblue"
         /> -->
         <script>
-            document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('DOMContentLoaded', start)
+            function start() {
+                if (!window.isScriptLoadded) {
+                    console.log('waiting for script to load...')
+                    setTimeout(start, 200)
+                    return
+                }
                 // document.body.style.opacity = '1'
                 const Editorjs3DMedia = self.Editorjs3DMedia
                 const dataLocation = 'editorjs-data-testing'
@@ -94,6 +105,31 @@
                                         }, 1500)
                                     })
                                 },
+                                threejsConfig: {
+                                    uploadSecondaryFiles: (files, type) => {
+                                        // Your secondary files uploading logic here
+                                        const fileUrls = files.map((file) => {
+                                            const fileUrl = URL.createObjectURL(file)
+                                            window.addEventListener(
+                                                'beforeunload',
+                                                () => {
+                                                    URL.revokeObjectURL(fileUrl)
+                                                },
+                                                { once: true },
+                                            )
+                                            return {
+                                                url: fileUrl,
+                                                extension: file.name.split('.').pop().toLowerCase(),
+                                            }
+                                        })
+                                        console.log('🚀 ~ start ~ fileUrls:', fileUrls)
+                                        return new Promise((resolve) => {
+                                            setTimeout(() => {
+                                                resolve(fileUrls)
+                                            }, 1500)
+                                        })
+                                    },
+                                },
                             },
                         },
                     },
@@ -119,7 +155,7 @@
                 document.getElementById('toggleReadOnly').addEventListener('click', () => {
                     editor.readOnly.toggle()
                 })
-            })
+            }
         </script>
         <footer>
             <p style="text-align: center; margin-top: 2em; color: gray">

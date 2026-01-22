@@ -1,37 +1,30 @@
 import { BlockTool, ToolboxConfig } from '@editorjs/editorjs';
 import { BlockToolConstructorOptions } from '@editorjs/editorjs/types/tools';
 import './index.css';
-export type Media3DData<Attributes = {}> = {
+export type Media3DData<Attributes = {}, Type extends "threejs" | "modelviewer" | undefined = undefined> = {
     caption: string;
-    /**
-     * 3D viewer to use
-     */
-    viewer: Viewer;
     /**
      * Additional attributes to add to the 3D viewer element
      */
     attributes?: Attributes;
-} & (ThreeJSData | ModelViewerData);
+} & (Type extends undefined ? (ThreeJSData | ModelViewerData) : Type extends "modelviewer" ? ModelViewerData : Type extends "threejs" ? ThreeJSData : {});
 type ModelViewerData = {
-    file: {
-        url: string;
-        extension: string;
-    };
+    file: FileUrl;
 } & {
     viewer: 'modelviewer';
 };
 type ThreeJSData = {
-    file: {
-        url: string;
-        extension: string;
-    };
+    file: FileUrl;
+    secondaryFiles?: FileUrl[];
 } & {
     viewer: 'threejs';
 };
 type Viewer = 'threejs' | 'modelviewer';
-export type Media3DConfig<Attributes = {}> = {
+export type Media3DConfig = Partial<Media3DLocalConfig>;
+export type Media3DLocalConfig<Attributes = {}> = {
     /**
-     * 3D viewer to use when pasting urls
+     * Preferred 3D viewer to use when pasting urls
+     * This of course depends on the format being supported by the viewer
      * @example 'modelviewer' | 'threejs'
      * @default 'modelviewer'
      */
@@ -50,41 +43,55 @@ export type Media3DConfig<Attributes = {}> = {
      * Function to upload file to server. Must return object with url and viewer type.
      * Optionally can return other attributes to add to the 3D viewer element.
      */
-    uploadFile?(file: File): Promise<{
-        url: string;
-        extension: string;
+    uploadFile?(file: File): Promise<FileUrl & {
         viewer: Viewer;
         /**
          * Other attributes to add to the 3D viewer element
          * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' }
-         */
+        */
         otherAttributes?: Attributes;
     }>;
     /**
      * Validate file before upload
      * @return true if valid, false or string with error message if not valid
-     */
+    */
     validateFile?(file: File): boolean | string;
     /**
      * Enable caption below 3D viewer
-     * @default true
-     */
+      * @default true
+    */
     enableCaption: boolean;
     /**
      * Custom loader element while uploading
      * @param file {File}
-     */
+    */
     customLoaderElement?(file: File): HTMLElement;
     /**
-     * Automatically open file picker on first render when there is no data
-     * @default true
-     */
+      * Automatically open file picker on first render when there is no data
+      * @default true
+      */
     autoOpenFilePicker?: boolean;
     /**
      * Enable download button for 3D models
      * @default false
-     */
+    */
     enableDownload: boolean;
+    /**
+     * Prepare threejs import before it's used in viewer. Useful for optimization.
+     * This is useful in case you dont want to use threejs at all or dont have it installed.
+     * @example
+     * prepareThreejsImport: true will dynamically import threejs when needed.
+     * prepareThreejsImport: false will disable threejs viewer.
+     * @default true
+     */
+    prepareThreejsImport?: boolean;
+    threejsConfig?: {
+        uploadSecondaryFiles(secondaryFiles: File[], type: "required" | "optional"): Promise<FileUrl[]>;
+    };
+};
+export type FileUrl = {
+    url: string;
+    extension: string;
 };
 export default class Editorjs360MediaBlock implements BlockTool {
     private _data;
@@ -95,7 +102,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private block;
     private readOnly;
     private _isFirstRender;
-    constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DConfig>);
+    constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DLocalConfig>);
     static get isReadOnlySupported(): boolean;
     get isInline(): boolean;
     set data(data: Media3DData);

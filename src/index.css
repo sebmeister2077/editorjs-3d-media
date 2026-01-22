@@ -23,6 +23,10 @@
     gap: 6px;
 }
 
+.cdx-3d-media-upload-button svg.upload {
+    color: transparent;
+}
+
 
 .cdx-3d-media-loader {
     width: 50px;
@@ -114,7 +118,8 @@ a.cdx-3d-media-download {
 .cdx-3d-media-threejs-uploader-wrapper {
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 20px;
 }
 
 .cdx-3d-media-threejs-upload-button {

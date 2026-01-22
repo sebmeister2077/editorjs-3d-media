@@ -1,12 +1,12 @@
-import { IconFile, IconGlobe } from "@codexteam/icons";
+import { IconFile, IconGlobe, IconLoader } from "@codexteam/icons";
 import { API } from "@editorjs/editorjs";
-import { Media3DConfig } from ".";
+import { FileUrl, Media3DLocalConfig } from ".";
 import { UploadIcon } from "./icons";
 
 export class ThreejsRenderer {
     private api: API;
-    private config: Media3DConfig
-    constructor({ api, config }: { api: API, config: Media3DConfig }) {
+    private config: Media3DLocalConfig
+    constructor({ api, config }: { api: API, config: Media3DLocalConfig }) {
         this.api = api;
         this.config = config;
 
@@ -30,7 +30,7 @@ export class ThreejsRenderer {
      * @example format: 'gltf', 'obj', 'fbx'
      * @param format 
      */
-    public renderUploaderFormat(url: string, format: string): HTMLElement {
+    public renderUploaderFormat(url: string, format: string, extraFiles: FileUrl[], addExtraFiles: (files: File[], type: "required" | "optional") => void): HTMLElement {
         const wrapper = document.createElement('div');
         wrapper.classList.add(this.CSS.uploadWrapper);
 
@@ -42,46 +42,74 @@ export class ThreejsRenderer {
             uploadButton.classList.add(this.CSS.uploadButton);
             if (useGivenFile) {
                 uploadButton.insertAdjacentHTML('beforeend', IconFile);
+                uploadButton.title = url;
                 uploadButton.appendChild(document.createTextNode(this.api.i18n.t('File type: ') + format.toUpperCase()));
             }
             else {
-                uploadButton.insertAdjacentHTML('beforeend', /*html*/ UploadIcon);
                 if (!accept || accept.length === 0)
                     return uploadButton;
                 const isMultiple = accept.length > 1;
-                uploadButton.appendChild(document.createTextNode(this.api.i18n.t(`${isOptional ? 'Optional ' : 'Required'} asset${isMultiple ? 's' : (': ' + accept.join(', '))}`)));
-                uploadButton.title = this.api.i18n.t(`Accepted file type${isMultiple ? 's' : ''}: ${accept.join(', ')}`);
-                uploadButton.addEventListener('click', () => {
-                    const fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.style.display = 'none';
-                    fileInput.accept = accept.join(',');
-                    fileInput.multiple = isMultiple
-                    fileInput.addEventListener('change', (event: Event) => {
-                        const target = event.target as HTMLInputElement;
-                        if (!target.files || target.files.length === 0) return
-                        const selectedFiles = Array.from(target.files);
-                        const filteredFiles = selectedFiles.filter(file => {
-                            const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-                            return accept.includes(fileExtension);
-                        });
-
-                        if (!isOptional) {
-                            // match if at least one of the required asset presets is fulfilled
-                            for (const extraAsset of extraAssets) {
-                                const isFulfilled = extraAsset.required.length == filteredFiles.length && extraAsset.required.every(reqExt => filteredFiles.some(file => file.name.toLowerCase().endsWith(reqExt)));
-
-                            }
-                            const message = this.api.i18n.t('Please select all required files: ') + accept.join(', ');
-                            this.api.notifier.show({ message, style: 'error' });
-                            return;
-                        }
-
-                        fileInput.remove();
+                uploadButton.insertAdjacentHTML('beforeend', /*html*/ UploadIcon);
+                let isValid = false;
+                let message = `${isOptional ? 'Optional ' : 'Required'} Asset${isMultiple ? 's' : (': ' + accept.join(', '))}`
+                if (extraFiles && extraFiles.length > 0) {
+                    const matchedFiles = extraFiles.filter(file => {
+                        const fileExtension = '.' + file.extension.toLowerCase();
+                        return accept.includes(fileExtension);
                     });
-                    document.body.insertAdjacentElement('beforeend', fileInput);
-                    fileInput.click();
-                });
+                    if (matchedFiles.length > 0) {
+                        isValid = true;
+                        message = ` ${this.api.i18n.t('Required Files: ')} ${this.renderShortenedExtension(matchedFiles.map(file => file.extension))}`;
+                    }
+                }
+                if (isValid) {
+                    uploadButton.innerHTML = IconFile;
+                    uploadButton.appendChild(document.createTextNode(this.api.i18n.t(message)));
+                }
+                else {
+                    uploadButton.appendChild(document.createTextNode(this.api.i18n.t(message)));
+                    uploadButton.title = this.api.i18n.t(`Accepted file type${isMultiple ? 's' : ''}: ${accept.join(', ')}`);
+
+                    uploadButton.addEventListener('click', () => {
+                        const fileInput = document.createElement('input');
+                        fileInput.type = 'file';
+                        fileInput.style.display = 'none';
+                        fileInput.accept = accept.join(',');
+                        fileInput.multiple = isMultiple
+                        fileInput.addEventListener('change', (event: Event) => {
+                            const target = event.target as HTMLInputElement;
+                            if (!target.files || target.files.length === 0) return
+                            const selectedFiles = Array.from(target.files);
+                            const filteredFiles = selectedFiles.filter(file => {
+                                const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+                                return accept.includes(fileExtension);
+                            });
+
+                            if (!isOptional) {
+                                let isFulfilled = false;
+                                // match if at least one of the required asset presets is fulfilled
+                                for (const extraAsset of extraAssets) {
+                                    isFulfilled = extraAsset.required.length == filteredFiles.length && extraAsset.required.every(reqExt => filteredFiles.some(file => file.name.toLowerCase().endsWith(reqExt)));
+                                    if (!isFulfilled) continue;
+                                    addExtraFiles(filteredFiles, "required");
+                                    break;
+
+                                }
+                                if (!isFulfilled) {
+                                    const message = this.api.i18n.t('Please select all required files: ') + accept.join(', ');
+                                    this.api.notifier.show({ message, style: 'error' });
+                                }
+                            }
+                            else {
+                                addExtraFiles(filteredFiles, "optional");
+                            }
+
+                            fileInput.remove();
+                        });
+                        document.body.insertAdjacentElement('beforeend', fileInput);
+                        fileInput.click();
+                    });
+                }
 
             }
             return uploadButton;
@@ -107,7 +135,7 @@ export class ThreejsRenderer {
         return wrapper;
     }
 
-    public renderViewerFormat(format: string, url: string, otherAssets?: any): HTMLElement {
+    public renderViewerFormat(format: string, url: string, otherAssets?: FileUrl[]): HTMLElement {
         const element = document.createElement('div');
         element.innerText = `Rendering format: ${format} from URL: ${url}`;
         return element;
@@ -131,5 +159,19 @@ export class ThreejsRenderer {
         return assetsMap[lowerCaseFormat] ? (Array.isArray(assetsMap[lowerCaseFormat]) ? assetsMap[lowerCaseFormat] as AssetRequirements[] : [assetsMap[lowerCaseFormat] as AssetRequirements]) : [];
     }
 
+    private renderShortenedExtension(extensions: string[]): string {
+        // count how many duplicates are, for example 4 jpg files, and instead of showing JPG, show 4x JPG
+        const extensionCountMap: { [key: string]: number } = {};
+        extensions.forEach(ext => {
+            const upperExt = ext.toUpperCase();
+            if (extensionCountMap[upperExt]) {
+                extensionCountMap[upperExt]++;
+            } else {
+                extensionCountMap[upperExt] = 1;
+            }
+        });
+        return Object.entries(extensionCountMap).map(([ext, count]) => count > 1 ? `${count}x ${ext}` : ext).join(', ');
+
+    }
 }
 type AssetRequirements = { required: string[], optional: string[] };
