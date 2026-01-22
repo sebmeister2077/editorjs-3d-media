@@ -1,7 +1,7 @@
 import { BlockTool, ToolboxConfig } from '@editorjs/editorjs';
 import { BlockToolConstructorOptions } from '@editorjs/editorjs/types/tools';
 import './index.css';
-export type Media3DData<Attributes = {}, Type extends "threejs" | "modelviewer" | undefined = undefined> = {
+export type Media3DData<Attributes extends Record<string, any> = {}, Type extends "threejs" | "modelviewer" | undefined = undefined> = {
     caption: string;
     /**
      * Additional attributes to add to the 3D viewer element

@@ -5,7 +5,7 @@ import './index.css';
 import { DownloadIcon, UploadIcon, } from './icons';
 import { ThreejsRenderer } from './threejsRenderer';
 
-export type Media3DData<Attributes = {}, Type extends "threejs" | "modelviewer" | undefined = undefined> = {
+export type Media3DData<Attributes extends Record<string, any> = {}, Type extends "threejs" | "modelviewer" | undefined = undefined> = {
     caption: string;
     /**
      * Additional attributes to add to the 3D viewer element
@@ -176,7 +176,6 @@ export default class Editorjs360MediaBlock implements BlockTool {
     }
 
     public render(): HTMLElement | Promise<HTMLElement> {
-        console.log("🚀 ~ Editorjs360MediaBlock.render ~ this.data:", this.data)
         const autoOpenPicker = this.config.autoOpenFilePicker && this._isFirstRender && !this.readOnly;
         this._isFirstRender = false;
         const data = this.data;
@@ -231,16 +230,31 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
         if (data.viewer === 'threejs') {
             const rendered = new ThreejsRenderer({ api: this.api, config: this.config });
-            const format = data.file.extension
-            const requiresExtraAssets = rendered.requiresExtraAssets(format);
-            if (requiresExtraAssets) {
+            const format = data.file.extension;
 
-                const threejsUploadElement = rendered.renderUploaderFormat(data.file.url, format, data.secondaryFiles ?? [], (files, type) => {
+            // user confirmed to render without optional files 
+            const ignoreOptionalFilesConfirmed = data.attributes && "ignoreOptionalFiles" in data.attributes && data.attributes['ignoreOptionalFiles'] === true;
+            const requiresExtraAssets = rendered.requiresExtraAssets(format, data.secondaryFiles?.map(f => f.extension) || []);
+            const isOnlyOptionalMissing = typeof requiresExtraAssets === 'object' && !requiresExtraAssets.required && requiresExtraAssets.optional;
+            const areRequiredMissing = requiresExtraAssets === true || (typeof requiresExtraAssets === 'object' && requiresExtraAssets.required);
+
+            if (areRequiredMissing || (isOnlyOptionalMissing && !ignoreOptionalFilesConfirmed)) {
+                const onConfirmIgnoreOptional = () => {
+                    this.data = {
+                        ...this.data,
+                        attributes: {
+                            ...this.data.attributes,
+                            ignoreOptionalFiles: true
+                        },
+                    };
+                    this.render();
+                }
+                const threejsUploadElement = rendered.renderUploaderFormat(data.file.url, format, data.secondaryFiles ?? [], async (files, type) => {
                     if (!this.config.threejsConfig?.uploadSecondaryFiles) {
                         console.error("No uploadSecondaryFiles function provided in threejsConfig.");
                         return;
                     }
-                    this.config.threejsConfig?.uploadSecondaryFiles(files, type).then(urls => {
+                    await this.config.threejsConfig?.uploadSecondaryFiles(files, type).then(urls => {
                         this.data = {
                             ...this.data,
                             viewer: 'threejs',
@@ -248,14 +262,14 @@ export default class Editorjs360MediaBlock implements BlockTool {
                         };
                         this.render();
                     })
-                });
+                }, onConfirmIgnoreOptional);
                 this.wrapperElement.replaceChildren(threejsUploadElement);
+                return this.wrapperElement;
             }
-            else {
-                const viewerElement = rendered.renderViewerFormat(format, data.file.url, data.secondaryFiles ?? []);
-                Object.assign(viewerElement.style, this.config.viewerStyle);
-                this.wrapperElement.replaceChildren(viewerElement);
-            }
+
+            const viewerElement = rendered.renderViewerFormat(format, data.file.url, data.secondaryFiles ?? []);
+            Object.assign(viewerElement.style, this.config.viewerStyle);
+            this.wrapperElement.replaceChildren(viewerElement);
 
             // const notSupported = document.createTextNode(this.api.i18n.t('ThreeJS viewer is not supported yet.'));
             // this.wrapperElement.replaceChildren(notSupported);

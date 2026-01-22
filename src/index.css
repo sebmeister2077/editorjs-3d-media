@@ -6,6 +6,10 @@
     position: relative;
 }
 
+.cdx-3d-media * {
+    box-sizing: border-box;
+}
+
 .cdx-3d-media-upload-button {
     display: flex;
     justify-content: center;
@@ -126,7 +130,8 @@ a.cdx-3d-media-download {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 13px;
+    padding: 8px 14px;
+    min-height: 54px;
     border-radius: 3px;
     border: 1px solid rgba(201, 201, 204, .48);
     font-size: 14.9px;
@@ -136,7 +141,11 @@ a.cdx-3d-media-download {
     color: #707684;
     text-align: center;
     cursor: pointer;
-    gap: 6px;
+    gap: 8px;
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
+    -ms-border-radius: 3px;
+    -o-border-radius: 3px;
 }
 
 .cdx-3d-media-threejs-upload-button svg {
@@ -145,4 +154,41 @@ a.cdx-3d-media-download {
 
 .cdx-3d-media-threejs-upload-button svg.upload {
     color: transparent;
+}
+
+.cdx-3d-media-threejs-confirm-ignore-optional-button {
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background-color: transparent;
+    outline: none;
+    cursor: pointer;
+    border-radius: 50%;
+    -webkit-border-radius: 50%;
+    -moz-border-radius: 50%;
+    -ms-border-radius: 50%;
+    -o-border-radius: 50%;
+    transition: background-color 0.3s ease;
+    -webkit-transition: background-color 0.3s ease;
+    -moz-transition: background-color 0.3s ease;
+    -ms-transition: background-color 0.3s ease;
+    -o-transition: background-color 0.3s ease;
+}
+
+.cdx-3d-media-threejs-confirm-ignore-optional-button svg {
+    transition: color 0.3s ease;
+    -webkit-transition: color 0.3s ease;
+    -moz-transition: color 0.3s ease;
+    -ms-transition: color 0.3s ease;
+    -o-transition: color 0.3s ease;
+}
+
+.cdx-3d-media-threejs-confirm-ignore-optional-button:hover {
+    background-color: #f0f0f0;
+}
+
+.cdx-3d-media-threejs-confirm-ignore-optional-button:hover svg {
+    fill: #ff0000;
 }

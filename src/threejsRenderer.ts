@@ -1,4 +1,4 @@
-import { IconFile, IconGlobe, IconLoader } from "@codexteam/icons";
+import { IconCross, IconFile, IconGlobe, IconLoader } from "@codexteam/icons";
 import { API } from "@editorjs/editorjs";
 import { FileUrl, Media3DLocalConfig } from ".";
 import { UploadIcon } from "./icons";
@@ -15,13 +15,30 @@ export class ThreejsRenderer {
         return {
             uploadWrapper: "cdx-3d-media-threejs-uploader-wrapper",
             uploadButton: "cdx-3d-media-threejs-upload-button",
+            confirmIgnoreOptionalButton: "cdx-3d-media-threejs-confirm-ignore-optional-button",
         }
     }
-    public requiresExtraAssets(format: string): boolean {
+    public requiresExtraAssets(format: string, secondaryFileExtensions: string[]): { required: boolean, optional: boolean } | boolean {
         const lowerCaseFormat = format.toLowerCase();
-        const requiresAssets = this.getExtraAssetsForFormat(lowerCaseFormat);
-        // TODO improve logic to check wether to show uploader for optional files too ?
-        return requiresAssets.filter(asset => asset.required.length > 0).length > 0;
+        const extraNeededAssets = this.getExtraAssetsForFormat(lowerCaseFormat);
+
+        const requiredAssets = extraNeededAssets.filter(asset => asset.required.length > 0);
+        if (requiredAssets.length === 0) return false;
+        if (secondaryFileExtensions.length === 0) return true;
+
+        const verifyExtensions = (ext: string) => secondaryFileExtensions.includes(ext.replace('.', '').toLowerCase());
+
+        // required, all presets must be fully matched
+        const matchedRequiredAssets = requiredAssets.filter(asset => asset.required.every(verifyExtensions));
+
+        // optional, at least one of the presets must be partially matched (required-all, optional at least one)
+        const isAtLeastOneFullyValid = matchedRequiredAssets
+            .some(asset => asset.optional.some(ext => verifyExtensions(ext)));
+
+        if (isAtLeastOneFullyValid)
+            return false;
+
+        return { required: matchedRequiredAssets.length === 0, optional: true };
     }
 
     //#region Render Uploader by main file format
@@ -30,7 +47,7 @@ export class ThreejsRenderer {
      * @example format: 'gltf', 'obj', 'fbx'
      * @param format 
      */
-    public renderUploaderFormat(url: string, format: string, extraFiles: FileUrl[], addExtraFiles: (files: File[], type: "required" | "optional") => void): HTMLElement {
+    public renderUploaderFormat(url: string, format: string, extraFiles: FileUrl[], addExtraFiles: (files: File[], type: "required" | "optional") => Promise<void>, confirmIgnoreOptional: () => void): HTMLElement {
         const wrapper = document.createElement('div');
         wrapper.classList.add(this.CSS.uploadWrapper);
 
@@ -43,6 +60,7 @@ export class ThreejsRenderer {
             if (useGivenFile) {
                 uploadButton.insertAdjacentHTML('beforeend', IconFile);
                 uploadButton.title = url;
+                uploadButton.style.cursor = 'default';
                 uploadButton.appendChild(document.createTextNode(this.api.i18n.t('File type: ') + format.toUpperCase()));
             }
             else {
@@ -51,7 +69,8 @@ export class ThreejsRenderer {
                 const isMultiple = accept.length > 1;
                 uploadButton.insertAdjacentHTML('beforeend', /*html*/ UploadIcon);
                 let isValid = false;
-                let message = `${isOptional ? 'Optional ' : 'Required'} Asset${isMultiple ? 's' : (': ' + accept.join(', '))}`
+                const optionalityText = isOptional ? 'Optional ' : 'Required'
+                let message = `${optionalityText} Asset${isMultiple ? 's' : (': ' + accept.join(', '))}`
                 if (extraFiles && extraFiles.length > 0) {
                     const matchedFiles = extraFiles.filter(file => {
                         const fileExtension = '.' + file.extension.toLowerCase();
@@ -59,10 +78,11 @@ export class ThreejsRenderer {
                     });
                     if (matchedFiles.length > 0) {
                         isValid = true;
-                        message = ` ${this.api.i18n.t('Required Files: ')} ${this.renderShortenedExtension(matchedFiles.map(file => file.extension))}`;
+                        message = ` ${this.api.i18n.t(`${optionalityText} Files: `)} ${this.renderShortenedExtension(matchedFiles.map(file => file.extension))}`;
                     }
                 }
                 if (isValid) {
+                    uploadButton.style.cursor = 'default';
                     uploadButton.innerHTML = IconFile;
                     uploadButton.appendChild(document.createTextNode(this.api.i18n.t(message)));
                 }
@@ -75,7 +95,9 @@ export class ThreejsRenderer {
                         fileInput.type = 'file';
                         fileInput.style.display = 'none';
                         fileInput.accept = accept.join(',');
-                        fileInput.multiple = isMultiple
+
+                        // Eventually maybe use a config value to decide if multiple files can be selected at once
+                        fileInput.multiple = true // always allow selecting multiple files to cover all cases, for now
                         fileInput.addEventListener('change', (event: Event) => {
                             const target = event.target as HTMLInputElement;
                             if (!target.files || target.files.length === 0) return
@@ -85,12 +107,14 @@ export class ThreejsRenderer {
                                 return accept.includes(fileExtension);
                             });
 
+                            const iconElement = uploadButton.querySelector('svg');
                             if (!isOptional) {
                                 let isFulfilled = false;
                                 // match if at least one of the required asset presets is fulfilled
                                 for (const extraAsset of extraAssets) {
                                     isFulfilled = extraAsset.required.length == filteredFiles.length && extraAsset.required.every(reqExt => filteredFiles.some(file => file.name.toLowerCase().endsWith(reqExt)));
                                     if (!isFulfilled) continue;
+                                    if (iconElement) iconElement.outerHTML = IconLoader;
                                     addExtraFiles(filteredFiles, "required");
                                     break;
 
@@ -101,6 +125,7 @@ export class ThreejsRenderer {
                                 }
                             }
                             else {
+                                if (iconElement) iconElement.outerHTML = IconLoader;
                                 addExtraFiles(filteredFiles, "optional");
                             }
 
@@ -126,12 +151,39 @@ export class ThreejsRenderer {
             return acc.concat(assetReq.optional);
         }, [] as string[])));
 
+
+        // no need to verify every file, just check if at least one of the required/optional files is present
+        // because that check is done when uploading.
+        const areRequiredFilesPresent = extraFiles.some(file => {
+            const fileExtension = '.' + file.extension.toLowerCase();
+            return combinedRequiredAssets.includes(fileExtension);
+        })
         if (combinedRequiredAssets.length > 0)
-            wrapper.appendChild(createUploadButton({ accept: combinedRequiredAssets }));
+            wrapper.appendChild(createUploadButton({ accept: combinedRequiredAssets, }));
 
+        const areOptionalFilesPresent = extraFiles.some(file => {
+            const fileExtension = '.' + file.extension.toLowerCase();
+            return combinedOptionalAssets.includes(fileExtension);
+        })
+        if (combinedOptionalAssets.length > 0) {
+            const optionalButton = createUploadButton({ accept: combinedOptionalAssets, isOptional: true })
+            wrapper.appendChild(optionalButton);
 
-        if (combinedOptionalAssets.length > 0)
-            wrapper.appendChild(createUploadButton({ accept: combinedOptionalAssets, isOptional: true }));
+            if (areRequiredFilesPresent && !areOptionalFilesPresent) {
+
+                // add button to allow users to ignore optional files and render anyway
+                const ignoreOptionalButton = document.createElement('button');
+                ignoreOptionalButton.classList.add(this.CSS.confirmIgnoreOptionalButton);
+                ignoreOptionalButton.insertAdjacentHTML('beforeend', IconCross);
+
+                ignoreOptionalButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    confirmIgnoreOptional();
+                })
+                optionalButton.insertAdjacentElement('beforeend', ignoreOptionalButton);
+            }
+        }
+
         return wrapper;
     }
 
