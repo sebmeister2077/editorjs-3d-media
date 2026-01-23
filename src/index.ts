@@ -295,8 +295,8 @@ export default class Editorjs360MediaBlock implements BlockTool {
             },
             // pattern where url ends with known 3D model
             patterns: {
-                'glb-model-url': /(https?:\/\/\S+\.(glb))/i,//|gltf|usdz|obj|fbx|3mf))/i,
-                'complex-model-url': /(https?:\/\/\S+\.(gltf|usdz|obj|fbx|3mf))/i,
+                'modelviewer-url': /(https?:\/\/\S+\.(glb|gltf))/i,//|gltf|usdz|obj|fbx|3mf))/i,
+                'threejs-url': /(https?:\/\/\S+\.(obj|fbx|3mf))/i,
             }
         }
     }
@@ -313,12 +313,13 @@ export default class Editorjs360MediaBlock implements BlockTool {
             }
             case 'pattern': {
                 const { data, key } = (event.detail as PatternPasteEventDetail);
-                if (key === 'glb-model-url') {
+                if (key === 'modelviewer-url') {
+                    const extension = data.split('.').pop() || 'glb';
                     this.data = {
                         ...this.data,
                         file: {
                             url: data,
-                            extension: 'glb'
+                            extension: extension,
                         }, viewer: "modelviewer"
                     };
                     if (this._filePickerTimeoutId)
@@ -338,7 +339,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
                 //     file: {
                 //         url: data,
                 //         extension: data.split('.').pop() || ''
-                //     }, viewer: this.config.viewer
+                //     }, viewer: "threejs"
                 // };
                 if (this._filePickerTimeoutId)
                     clearTimeout(this._filePickerTimeoutId);
