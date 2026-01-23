@@ -86,51 +86,55 @@
                                 // },
                                 formatsAllowed: ['glb', 'gltf', 'obj'],
                                 enableDownload: true,
-                                uploadFile(file) {
+                                /**
+                                 * TODO add this in documentation
+                                 * Function to handle file uploads
+                                 * For any 3d format that requires relative files& textures, you should either preserve the relative paths in your upload solution using file.webkitRelativePath
+                                 * or modify the 3D file to point to the uploaded files as shown in the example below for glTF files. (Since i am using browser local URLs here, I don't have relative paths support )
+                                 * @param {File} mainFile The main 3D model file (glb, gltf, obj, etc.)
+                                 * @param {File[]} secondaryFiles Additional files (textures, bin files, images, etc.)
+                                 */
+                                async uploadFiles(mainFile, secondaryFiles) {
+                                    const mainCommonFolderName = mainFile.webkitRelativePath
+                                        ? mainFile.webkitRelativePath.replace(/\/[^\/]*$/, '')
+                                        : ''
+                                    const fileMap = new Map()
+                                    for (const file of secondaryFiles) {
+                                        const url = URL.createObjectURL(file)
+                                        fileMap.set(file.webkitRelativePath?.replace(mainCommonFolderName + '/', '') || file.name, url)
+                                    }
+
+                                    const gltfFile = mainFile
+                                    const gltfText = await gltfFile.text()
+                                    const gltfJson = JSON.parse(gltfText)
+                                    for (const buffer of gltfJson.buffers) {
+                                        buffer.uri = fileMap.get(buffer.uri)
+                                    }
+                                    for (const image of gltfJson.images) {
+                                        image.uri = fileMap.get(image.uri)
+                                    }
+
+                                    const newGltfBlob = new Blob([JSON.stringify(gltfJson)], { type: 'model/gltf+json' })
+                                    const gltfUrl = URL.createObjectURL(newGltfBlob)
+
                                     // Your file uploading logic here
-                                    const extension = file.name.split('.').pop().toLowerCase()
-                                    const fileUrl = URL.createObjectURL(file)
-                                    window.addEventListener(
-                                        'beforeunload',
-                                        () => {
-                                            URL.revokeObjectURL(fileUrl)
-                                        },
-                                        { once: true },
-                                    )
+                                    const extension = mainFile.name.split('.').pop().toLowerCase()
+
                                     return new Promise((resolve) => {
                                         setTimeout(() => {
                                             resolve({
-                                                url: fileUrl,
-                                                extension,
+                                                mainFile: {
+                                                    url: gltfUrl,
+                                                    extension,
+                                                },
+                                                secondaryFiles: Array.from(fileMap).map(([name, url]) => ({
+                                                    url,
+                                                    extension: name.split('.').pop().toLowerCase(),
+                                                })),
                                                 viewer: 'modelviewer', //'threejs', // or 'modelviewer'
                                             })
                                         }, 1500)
                                     })
-                                },
-                                threejsConfig: {
-                                    uploadSecondaryFiles: (files, type) => {
-                                        // Your secondary files uploading logic here
-                                        const fileUrls = files.map((file) => {
-                                            const fileUrl = URL.createObjectURL(file)
-                                            window.addEventListener(
-                                                'beforeunload',
-                                                () => {
-                                                    URL.revokeObjectURL(fileUrl)
-                                                },
-                                                { once: true },
-                                            )
-                                            return {
-                                                url: fileUrl,
-                                                extension: file.name.split('.').pop().toLowerCase(),
-                                            }
-                                        })
-                                        // console.log('🚀 ~ start ~ fileUrls:', fileUrls)
-                                        return new Promise((resolve) => {
-                                            setTimeout(() => {
-                                                resolve(fileUrls)
-                                            }, 1500)
-                                        })
-                                    },
                                 },
                             },
                         },

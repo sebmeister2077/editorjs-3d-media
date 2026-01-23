@@ -25,6 +25,7 @@ export type Media3DLocalConfig<Attributes = {}> = {
     /**
      * Preferred 3D viewer to use when pasting urls
      * This of course depends on the format being supported by the viewer
+     * Formats where more files are needed will be rejected
      * @example 'modelviewer' | 'threejs'
      * @default 'modelviewer'
      */
@@ -34,8 +35,8 @@ export type Media3DLocalConfig<Attributes = {}> = {
      */
     viewerStyle?: Partial<CSSStyleDeclaration>;
     /**
-     * Allowed 3d model formats
-     * @example ['glb','gltf','usdz','obj','fbx','3mf']
+     * Allowed 3d model & texture formats
+     * @example ['glb','gltf','usdz','obj','mtl','fbx','3mf','jpg','png']
      * @default ['glb']
      */
     formatsAllowed: string[];
@@ -122,6 +123,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private get main3DFileExtensions();
     validate(blockData: Media3DData): boolean;
     private handleFilesSelected;
+    private get formatExtraAssetsMap();
     private renderUploadButton;
     private renderLoadingElement;
     private drawCaptionElement;

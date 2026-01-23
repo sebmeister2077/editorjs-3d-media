@@ -31,6 +31,7 @@ export type Media3DLocalConfig<Attributes = {}> = {
     /**
      * Preferred 3D viewer to use when pasting urls
      * This of course depends on the format being supported by the viewer
+     * Formats where more files are needed will be rejected
      * @example 'modelviewer' | 'threejs'
      * @default 'modelviewer'
      */
@@ -40,11 +41,11 @@ export type Media3DLocalConfig<Attributes = {}> = {
      */
     viewerStyle?: Partial<CSSStyleDeclaration>;
     /**
-     * Allowed 3d model formats
-     * @example ['glb','gltf','usdz','obj','fbx','3mf']
+     * Allowed 3d model & texture formats
+     * @example ['glb','gltf','usdz','obj','mtl','fbx','3mf','jpg','png']
      * @default ['glb']
      */
-    formatsAllowed: string[]; // allowed 3d model formats
+    formatsAllowed: string[]; // allowed 3d model & texture formats
     /**
      * Function to upload file to server. Must return object with url and viewer type.
      * Optionally can return other attributes to add to the 3D viewer element.
@@ -236,11 +237,11 @@ export default class Editorjs360MediaBlock implements BlockTool {
         }
 
         if (data.viewer === 'threejs') {
-            const rendered = new ThreejsRenderer({ api: this.api, config: this.config });
+            // const rendered = new ThreejsRenderer({ api: this.api, config: this.config });
 
-            const viewerElement = rendered.renderViewerFormat(data.file, data?.secondaryFiles ?? []);
-            Object.assign(viewerElement.style, this.config.viewerStyle);
-            this.wrapperElement.replaceChildren(viewerElement);
+            // const viewerElement = rendered.renderViewerFormat(data.file, data?.secondaryFiles ?? []);
+            // Object.assign(viewerElement.style, this.config.viewerStyle);
+            // this.wrapperElement.replaceChildren(viewerElement);
 
             // const notSupported = document.createTextNode(this.api.i18n.t('ThreeJS viewer is not supported yet.'));
             // this.wrapperElement.replaceChildren(notSupported);
@@ -360,6 +361,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
         try {
             const { viewer, mainFile: mainFileUrl, secondaryFiles, otherAttributes } = await this.config.uploadFiles(mainFile, validatedFiles.filter(file => file !== mainFile));
+
             this.data = {
                 ...this.data,
                 file: {
@@ -385,6 +387,24 @@ export default class Editorjs360MediaBlock implements BlockTool {
         }
     }
 
+    private get formatExtraAssetsMap() {
+        const mapping = {
+            'obj': ['mtl', 'jpg', 'png', 'jpeg'],
+            'gltf': ['bin', 'jpg', 'png', 'jpeg'],
+            'glb': [],
+            'usdz': ['jpg', 'png', 'jpeg'],
+            'fbx': ['jpg', 'png', 'jpeg'],
+            '3mf': ['jpg', 'png', 'jpeg'],
+            // add more formats as needed
+        } as const
+
+        return {
+            ...mapping,
+            // all combined formats
+            "*": Array.from(new Set([...Object.values(mapping).flat(), ...Object.keys(mapping)])),
+        }
+    }
+
 
     //#region Drawing elements
 
@@ -403,8 +423,18 @@ export default class Editorjs360MediaBlock implements BlockTool {
             fileInput.hidden = true;
             fileInput.webkitdirectory = shouldBeDirectory;
 
-            // This will be ignored if webkitdirectory is set
-            fileInput.accept = this.config.formatsAllowed.map(ext => `.${ext}`).join(',');
+            // This caontains all extensions including extra assets for each extension
+            const totalExtensionSet = new Set();
+            this.config.formatsAllowed.forEach(ext => {
+                const extraExtensions = this.formatExtraAssetsMap[ext as keyof typeof this.formatExtraAssetsMap] || [];
+                extraExtensions.forEach(extraExt => totalExtensionSet.add(extraExt.toLowerCase()));
+                totalExtensionSet.add(ext.toLowerCase())
+            });
+
+            // Accept will be ignored if webkitdirectory is set to true btw
+            const accept = this.config.formatsAllowed.map(ext => '.' + ext.toLowerCase()).join(',');
+
+            fileInput.accept = accept;
 
             fileInput.addEventListener('change', async (e) => {
                 e.stopPropagation();
@@ -412,7 +442,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
                 if (!files || files.length === 0) return;
                 const filteredFiles = Array.from(files).filter(file => {
                     const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
-                    return this.config.formatsAllowed.includes(fileExt);
+                    return totalExtensionSet.has(fileExt);
                 });
                 if (filteredFiles.length === 0) {
                     this.api.notifier.show({
