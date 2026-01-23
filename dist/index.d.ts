@@ -1,4 +1,4 @@
-import { BlockTool, ToolboxConfig } from '@editorjs/editorjs';
+import { BlockTool, PasteEvent, PasteConfig, ToolboxConfig } from '@editorjs/editorjs';
 import { BlockToolConstructorOptions } from '@editorjs/editorjs/types/tools';
 import './index.css';
 export type Media3DData<Attributes extends Record<string, any> = {}, Type extends "threejs" | "modelviewer" | undefined = undefined> = {
@@ -22,14 +22,6 @@ type ThreeJSData = {
 type Viewer = 'threejs' | 'modelviewer';
 export type Media3DConfig = Partial<Media3DLocalConfig>;
 export type Media3DLocalConfig<Attributes = {}> = {
-    /**
-     * Preferred 3D viewer to use when pasting urls
-     * This of course depends on the format being supported by the viewer
-     * Formats where more files are needed will be rejected
-     * @example 'modelviewer' | 'threejs'
-     * @default 'modelviewer'
-     */
-    viewer: Viewer;
     /** Custom styles for 3D viewer element
      * @example { width: '100%', height: '400px', borderRadius: '8px' }
      */
@@ -48,12 +40,13 @@ export type Media3DLocalConfig<Attributes = {}> = {
         mainFile: FileUrl;
         viewer: Viewer;
         /**
-         * Secondary files required for the 3D model (like .mtl for .obj). This is usually textures and material files.
+         * Secondary files required for the 3D model (like .mtl for .obj, .jpgs). This is usually textures and material files.
+         * Note: These files usually need to be in the same directory as the main 3D model file to work correctly. Or you'd have to adjust the paths in the 3D model file accordingly (Read doc examples).
          */
         secondaryFiles?: FileUrl[];
         /**
          * Other attributes to add to the 3D viewer element
-         * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' }
+         * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' } https://modelviewer.dev/docs/
         */
         otherAttributes?: Attributes;
     }>;
@@ -110,6 +103,8 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private block;
     private readOnly;
     private _isFirstRender;
+    private _filePickerTimeoutId;
+    private _autoOpenPickerTimeoutMs;
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DLocalConfig>);
     static get isReadOnlySupported(): boolean;
     get isInline(): boolean;
@@ -122,6 +117,9 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private get CSS();
     private get main3DFileExtensions();
     validate(blockData: Media3DData): boolean;
+    static get pasteConfig(): PasteConfig | undefined;
+    onPaste?(event: PasteEvent): void;
+    destroy?(): void;
     private handleFilesSelected;
     private get formatExtraAssetsMap();
     private renderUploadButton;

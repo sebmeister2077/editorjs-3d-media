@@ -1,5 +1,5 @@
 import EditorJS, { BlockTool, BlockToolConstructable, BlockToolData, PasteEvent, ConversionConfig, PasteConfig, SanitizerConfig, ToolboxConfig, ToolConfig, API, BlockAPI } from '@editorjs/editorjs'
-import { BlockToolConstructorOptions, MenuConfig, MoveEvent } from '@editorjs/editorjs/types/tools';
+import { BlockToolConstructorOptions, FilePasteEventDetail, MenuConfig, MoveEvent, PatternPasteEventDetail } from '@editorjs/editorjs/types/tools';
 import { IconGlobe } from '@codexteam/icons'
 import './index.css';
 import { DownloadIcon, UploadIcon, } from './icons';
@@ -28,14 +28,6 @@ type Viewer = 'threejs' | 'modelviewer';
 
 export type Media3DConfig = Partial<Media3DLocalConfig>;
 export type Media3DLocalConfig<Attributes = {}> = {
-    /**
-     * Preferred 3D viewer to use when pasting urls
-     * This of course depends on the format being supported by the viewer
-     * Formats where more files are needed will be rejected
-     * @example 'modelviewer' | 'threejs'
-     * @default 'modelviewer'
-     */
-    viewer: Viewer;
     /** Custom styles for 3D viewer element
      * @example { width: '100%', height: '400px', borderRadius: '8px' }
      */
@@ -54,12 +46,13 @@ export type Media3DLocalConfig<Attributes = {}> = {
         mainFile: FileUrl;
         viewer: Viewer;
         /**
-         * Secondary files required for the 3D model (like .mtl for .obj). This is usually textures and material files.
+         * Secondary files required for the 3D model (like .mtl for .obj, .jpgs). This is usually textures and material files.
+         * Note: These files usually need to be in the same directory as the main 3D model file to work correctly. Or you'd have to adjust the paths in the 3D model file accordingly (Read doc examples).
          */
         secondaryFiles?: FileUrl[];
         /**
          * Other attributes to add to the 3D viewer element
-         * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' }
+         * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' } https://modelviewer.dev/docs/
         */
         otherAttributes?: Attributes
     }>;
@@ -121,10 +114,11 @@ export default class Editorjs360MediaBlock implements BlockTool {
     private block: BlockAPI;
     private readOnly: boolean;
     private _isFirstRender: boolean = true;
+    private _filePickerTimeoutId: NodeJS.Timeout | null = null;
+    private _autoOpenPickerTimeoutMs = 200;
 
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DLocalConfig>) {
         const defaultConfig: Media3DLocalConfig = {
-            viewer: 'modelviewer',
             formatsAllowed: ['glb'],
             enableCaption: true,
             autoOpenFilePicker: true,
@@ -271,6 +265,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
         return ['glb', 'gltf', 'usdz', 'obj', 'fbx', '3mf'];
     }
 
+    //TODO render a toggle to view or not view the model in edit mode (performance boost)
     // renderSettings?(): HTMLElement | MenuConfig {
     //     return [{
     //         children: [],
@@ -292,12 +287,69 @@ export default class Editorjs360MediaBlock implements BlockTool {
     // public merge?(blockData: Media3DData): void {
     //     // throw new Error('Method not implemented.');
     // }
-    // public onPaste?(event: PasteEvent): void {
-    //     // throw new Error('Method not implemented.');
-    // }
-    // public destroy?(): void {
-    //     // throw new Error('Method not implemented.');
-    // }
+    public static get pasteConfig(): PasteConfig | undefined {
+        return {
+            files: {
+                extensions: ['glb']//, 'gltf', 'usdz', 'obj', 'fbx', '3mf'],
+            },
+            // pattern where url ends with known 3D model
+            patterns: {
+                'glb-model-url': /(https?:\/\/\S+\.(glb))/i,//|gltf|usdz|obj|fbx|3mf))/i,
+                'complex-model-url': /(https?:\/\/\S+\.(gltf|usdz|obj|fbx|3mf))/i,
+            }
+        }
+    }
+
+    // this block is rendered already before paste handling btw
+    public onPaste?(event: PasteEvent): void {
+        switch (event.type) {
+            case 'file': {
+                const { file } = (event.detail as FilePasteEventDetail);
+                if (this._filePickerTimeoutId)
+                    clearTimeout(this._filePickerTimeoutId);
+                this.handleFilesSelected([file])
+                break;
+            }
+            case 'pattern': {
+                const { data, key } = (event.detail as PatternPasteEventDetail);
+                if (key === 'glb-model-url') {
+                    this.data = {
+                        ...this.data,
+                        file: {
+                            url: data,
+                            extension: 'glb'
+                        }, viewer: "modelviewer"
+                    };
+                    if (this._filePickerTimeoutId)
+                        clearTimeout(this._filePickerTimeoutId);
+                    this.render();
+                    return;
+                }
+
+                // complex model urls may not work for now, because they MAY require extra files
+                this.api.notifier.show({
+                    message: this.api.i18n.t('Pasting complex 3D model URLs is not supported yet. Please use the file uploader.'),
+                    style: 'error',
+                });
+                this.api.blocks.delete(this.api.blocks.getBlockIndex(this.block.id!));
+                // this.data = {
+                //     ...this.data,
+                //     file: {
+                //         url: data,
+                //         extension: data.split('.').pop() || ''
+                //     }, viewer: this.config.viewer
+                // };
+                if (this._filePickerTimeoutId)
+                    clearTimeout(this._filePickerTimeoutId);
+                this.render();
+                break;
+            }
+        }
+    }
+    public destroy?(): void {
+        if (this._filePickerTimeoutId)
+            clearTimeout(this._filePickerTimeoutId);
+    }
     // public rendered?(): void {
     //     // throw new Error('Method not implemented.');
     // }
@@ -311,7 +363,6 @@ export default class Editorjs360MediaBlock implements BlockTool {
     //     // throw new Error('Method not implemented.');
     // }
 
-    // public pasteConfig?: PasteConfig | undefined;
     // public conversionConfig?: ConversionConfig | undefined;
 
     // public title?: string | undefined;
@@ -458,9 +509,9 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
         });
         if (autoOpenPicker) {
-            queueMicrotask(() => {
+            this._filePickerTimeoutId = setTimeout(() => {
                 uploadButton.click();
-            });
+            }, this._autoOpenPickerTimeoutMs);
         }
 
         this.wrapperElement.replaceChildren(uploadButton);
@@ -517,18 +568,18 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
 
     private verify3DViewer() {
-        switch (this.config.viewer) {
-            case 'threejs':
-                break;
-            case 'modelviewer':
-                if (customElements.get('model-viewer')) {
-                    return;
-                }
-                console.warn("model-viewer not found in custom elements. Possibly might not work.");
-                break;
-            default:
-                console.warn(`3D viewer ${this.config.viewer} is not recognized.`);
-        }
+        // switch (this.config.viewer) {
+        //     case 'threejs':
+        //         break;
+        //     case 'modelviewer':
+        //         if (customElements.get('model-viewer')) {
+        //             return;
+        //         }
+        //         console.warn("model-viewer not found in custom elements. Possibly might not work.");
+        //         break;
+        //     default:
+        //         console.warn(`3D viewer ${this.config.viewer} is not recognized.`);
+        // }
 
     }
 

@@ -66,6 +66,8 @@
                      * @param {File[]} secondaryFiles Additional files (textures, bin files, images, etc.)
                      */
                     async uploadFiles(mainFile, secondaryFiles) {
+                        console.log('🚀 ~ getConfig ~ secondaryFiles:', secondaryFiles)
+                        console.log('🚀 ~ getConfig ~ mainFile:', mainFile)
                         const isSingleFileObject = secondaryFiles.length === 0
                         if (!isSingleFileObject) {
                             const mainCommonFolderName = mainFile.webkitRelativePath
