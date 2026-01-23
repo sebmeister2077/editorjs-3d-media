@@ -187,7 +187,8 @@ export class ThreejsRenderer {
         return wrapper;
     }
 
-    public renderViewerFormat(format: string, url: string, otherAssets?: FileUrl[]): HTMLElement {
+    public renderViewerFormat(mainFile: FileUrl, secondaryFiles: FileUrl[]): HTMLElement {
+        const { url, extension: format } = mainFile;
         const element = document.createElement('div');
         element.innerText = `Rendering format: ${format} from URL: ${url}`;
         return element;

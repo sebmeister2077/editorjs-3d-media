@@ -42,8 +42,10 @@
             placeholder="MTL file"
             style="width: 160px; height: 40px; color: aliceblue"
         /> -->
-        <script>
-            document.addEventListener('DOMContentLoaded', start)
+        <!-- <input id="folder" type="file" webkitdirectory directory /> -->
+        <script defer>
+            start()
+            // document.addEventListener('DOMContentLoaded', start)
             function start() {
                 if (!window.isScriptLoadded) {
                     console.log('waiting for script to load...')
@@ -82,7 +84,7 @@
                                 //     borderRadius: '8px',
                                 //     backgroundColor: '#f0f0f0',
                                 // },
-                                formatsAllowed: ['obj'],
+                                formatsAllowed: ['glb', 'gltf', 'obj'],
                                 enableDownload: true,
                                 uploadFile(file) {
                                     // Your file uploading logic here
@@ -100,7 +102,7 @@
                                             resolve({
                                                 url: fileUrl,
                                                 extension,
-                                                viewer: 'threejs', // or 'modelviewer'
+                                                viewer: 'modelviewer', //'threejs', // or 'modelviewer'
                                             })
                                         }, 1500)
                                     })

@@ -18,7 +18,7 @@ export declare class ThreejsRenderer {
      * @param format
      */
     renderUploaderFormat(url: string, format: string, extraFiles: FileUrl[], addExtraFiles: (files: File[], type: "required" | "optional") => Promise<void>, confirmIgnoreOptional: () => void): HTMLElement;
-    renderViewerFormat(format: string, url: string, otherAssets?: FileUrl[]): HTMLElement;
+    renderViewerFormat(mainFile: FileUrl, secondaryFiles: FileUrl[]): HTMLElement;
     private getExtraAssetsForFormat;
     private renderShortenedExtension;
 }

@@ -7,6 +7,7 @@ export type Media3DData<Attributes extends Record<string, any> = {}, Type extend
      * Additional attributes to add to the 3D viewer element
      */
     attributes?: Attributes;
+    secondaryFiles?: FileUrl[];
 } & (Type extends undefined ? (ThreeJSData | ModelViewerData) : Type extends "modelviewer" ? ModelViewerData : Type extends "threejs" ? ThreeJSData : {});
 type ModelViewerData = {
     file: FileUrl;
@@ -15,7 +16,6 @@ type ModelViewerData = {
 };
 type ThreeJSData = {
     file: FileUrl;
-    secondaryFiles?: FileUrl[];
 } & {
     viewer: 'threejs';
 };
@@ -36,15 +36,20 @@ export type Media3DLocalConfig<Attributes = {}> = {
     /**
      * Allowed 3d model formats
      * @example ['glb','gltf','usdz','obj','fbx','3mf']
-     * @default ['glb','gltf']
+     * @default ['glb']
      */
     formatsAllowed: string[];
     /**
      * Function to upload file to server. Must return object with url and viewer type.
      * Optionally can return other attributes to add to the 3D viewer element.
      */
-    uploadFile?(file: File): Promise<FileUrl & {
+    uploadFiles?(mainFile: File, secondaryFiles: File[]): Promise<{
+        mainFile: FileUrl;
         viewer: Viewer;
+        /**
+         * Secondary files required for the 3D model (like .mtl for .obj). This is usually textures and material files.
+         */
+        secondaryFiles?: FileUrl[];
         /**
          * Other attributes to add to the 3D viewer element
          * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' }
@@ -63,9 +68,9 @@ export type Media3DLocalConfig<Attributes = {}> = {
     enableCaption: boolean;
     /**
      * Custom loader element while uploading
-     * @param file {File}
+     * @param mainFile {File}
     */
-    customLoaderElement?(file: File): HTMLElement;
+    customLoaderElement?(mainFile: File): HTMLElement;
     /**
       * Automatically open file picker on first render when there is no data
       * @default true
@@ -85,12 +90,14 @@ export type Media3DLocalConfig<Attributes = {}> = {
      * @default true
      */
     prepareThreejsImport?: boolean;
-    threejsConfig?: {
-        uploadSecondaryFiles(secondaryFiles: File[], type: "required" | "optional"): Promise<FileUrl[]>;
-    };
+    threejsConfig?: {};
 };
 export type FileUrl = {
     url: string;
+    /**
+     * File extension without dot
+     * e.g. 'glb', 'gltf', 'usdz'
+     */
     extension: string;
 };
 export default class Editorjs360MediaBlock implements BlockTool {
@@ -112,8 +119,9 @@ export default class Editorjs360MediaBlock implements BlockTool {
     render(): HTMLElement | Promise<HTMLElement>;
     private get EditorCSS();
     private get CSS();
+    private get main3DFileExtensions();
     validate(blockData: Media3DData): boolean;
-    private handleFileSelected;
+    private handleFilesSelected;
     private renderUploadButton;
     private renderLoadingElement;
     private drawCaptionElement;

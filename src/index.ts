@@ -11,6 +11,7 @@ export type Media3DData<Attributes extends Record<string, any> = {}, Type extend
      * Additional attributes to add to the 3D viewer element
      */
     attributes?: Attributes;
+    secondaryFiles?: FileUrl[];
 } & (Type extends undefined ? (ThreeJSData | ModelViewerData) :
     Type extends "modelviewer" ? ModelViewerData :
     Type extends "threejs" ? ThreeJSData : {})
@@ -21,7 +22,6 @@ type ModelViewerData = {
 
 type ThreeJSData = {
     file: FileUrl;
-    secondaryFiles?: FileUrl[];
 } & { viewer: 'threejs' };
 
 type Viewer = 'threejs' | 'modelviewer';
@@ -42,15 +42,20 @@ export type Media3DLocalConfig<Attributes = {}> = {
     /**
      * Allowed 3d model formats
      * @example ['glb','gltf','usdz','obj','fbx','3mf']
-     * @default ['glb','gltf']
+     * @default ['glb']
      */
     formatsAllowed: string[]; // allowed 3d model formats
     /**
      * Function to upload file to server. Must return object with url and viewer type.
      * Optionally can return other attributes to add to the 3D viewer element.
      */
-    uploadFile?(file: File): Promise<FileUrl & {
+    uploadFiles?(mainFile: File, secondaryFiles: File[]): Promise<{
+        mainFile: FileUrl;
         viewer: Viewer;
+        /**
+         * Secondary files required for the 3D model (like .mtl for .obj). This is usually textures and material files.
+         */
+        secondaryFiles?: FileUrl[];
         /**
          * Other attributes to add to the 3D viewer element
          * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' }
@@ -69,9 +74,9 @@ export type Media3DLocalConfig<Attributes = {}> = {
     enableCaption: boolean;
     /**
      * Custom loader element while uploading
-     * @param file {File}
+     * @param mainFile {File}
     */
-    customLoaderElement?(file: File): HTMLElement;
+    customLoaderElement?(mainFile: File): HTMLElement;
     /**
       * Automatically open file picker on first render when there is no data
       * @default true
@@ -94,13 +99,15 @@ export type Media3DLocalConfig<Attributes = {}> = {
     // TODO custom handles for threejs viewer
 
     threejsConfig?: {
-        uploadSecondaryFiles(secondaryFiles: File[], type: "required" | "optional"): Promise<FileUrl[]>;
     }
 }
 
 export type FileUrl = {
     url: string;
-    //TODO remove this because it is temporary, i am using URL.createObjectURL in dev mode
+    /**
+     * File extension without dot
+     * e.g. 'glb', 'gltf', 'usdz'
+     */
     extension: string;
 }
 
@@ -117,7 +124,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
     constructor({ data, config, api, readOnly, block }: BlockToolConstructorOptions<Media3DData, Media3DLocalConfig>) {
         const defaultConfig: Media3DLocalConfig = {
             viewer: 'modelviewer',
-            formatsAllowed: ['glb', 'gltf'],
+            formatsAllowed: ['glb'],
             enableCaption: true,
             autoOpenFilePicker: true,
             enableDownload: false,
@@ -230,44 +237,8 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
         if (data.viewer === 'threejs') {
             const rendered = new ThreejsRenderer({ api: this.api, config: this.config });
-            const format = data.file.extension;
 
-            // user confirmed to render without optional files 
-            const ignoreOptionalFilesConfirmed = data.attributes && "ignoreOptionalFiles" in data.attributes && data.attributes['ignoreOptionalFiles'] === true;
-            const requiresExtraAssets = rendered.requiresExtraAssets(format, data.secondaryFiles?.map(f => f.extension) || []);
-            const isOnlyOptionalMissing = typeof requiresExtraAssets === 'object' && !requiresExtraAssets.required && requiresExtraAssets.optional;
-            const areRequiredMissing = requiresExtraAssets === true || (typeof requiresExtraAssets === 'object' && requiresExtraAssets.required);
-
-            if (areRequiredMissing || (isOnlyOptionalMissing && !ignoreOptionalFilesConfirmed)) {
-                const onConfirmIgnoreOptional = () => {
-                    this.data = {
-                        ...this.data,
-                        attributes: {
-                            ...this.data.attributes,
-                            ignoreOptionalFiles: true
-                        },
-                    };
-                    this.render();
-                }
-                const threejsUploadElement = rendered.renderUploaderFormat(data.file.url, format, data.secondaryFiles ?? [], async (files, type) => {
-                    if (!this.config.threejsConfig?.uploadSecondaryFiles) {
-                        console.error("No uploadSecondaryFiles function provided in threejsConfig.");
-                        return;
-                    }
-                    await this.config.threejsConfig?.uploadSecondaryFiles(files, type).then(urls => {
-                        this.data = {
-                            ...this.data,
-                            viewer: 'threejs',
-                            secondaryFiles: [...(data.secondaryFiles ?? []), ...urls].flat(),
-                        };
-                        this.render();
-                    })
-                }, onConfirmIgnoreOptional);
-                this.wrapperElement.replaceChildren(threejsUploadElement);
-                return this.wrapperElement;
-            }
-
-            const viewerElement = rendered.renderViewerFormat(format, data.file.url, data.secondaryFiles ?? []);
+            const viewerElement = rendered.renderViewerFormat(data.file, data?.secondaryFiles ?? []);
             Object.assign(viewerElement.style, this.config.viewerStyle);
             this.wrapperElement.replaceChildren(viewerElement);
 
@@ -296,6 +267,10 @@ export default class Editorjs360MediaBlock implements BlockTool {
             caption: "cdx-3d-media-caption",
             download: "cdx-3d-media-download",
         }
+    }
+
+    private get main3DFileExtensions() {
+        return ['glb', 'gltf', 'usdz', 'obj', 'fbx', '3mf'];
     }
 
     // renderSettings?(): HTMLElement | MenuConfig {
@@ -350,32 +325,48 @@ export default class Editorjs360MediaBlock implements BlockTool {
     // }
 
 
-    private async handleFileSelected(file: File) {
-        if (!this.config.uploadFile) {
+    private async handleFilesSelected(files: File[]) {
+        if (!this.config.uploadFiles) {
             console.error("No uploadFile function provided in config.");
             return;
         }
-        if (this.config.validateFile) {
-            const validationResult = this.config.validateFile(file);
-            if (validationResult !== true) {
-                const errorMessage = typeof validationResult === 'string' ? validationResult : this.api.i18n.t('Invalid file');
-                this.api.notifier.show({
-                    message: errorMessage,
-                    style: 'error',
-                });
-                return;
+
+        const validatedFiles = files.filter(file => {
+            if (this.config.validateFile) {
+                const validationResult = this.config.validateFile(file);
+                if (validationResult !== true) {
+                    const errorMessage = typeof validationResult === 'string' ? validationResult : this.api.i18n.t('Invalid file');
+                    this.api.notifier.show({
+                        message: errorMessage,
+                        style: 'error',
+                    });
+                    return false;
+                }
             }
+            return true;
+        });
+        const mainFile = validatedFiles.find(file => {
+            const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+            return this.main3DFileExtensions.includes(fileExt);
+        });
+        if (!mainFile) {
+            this.api.notifier.show({
+                message: this.api.i18n.t('No valid main 3D model file found'),
+                style: 'error',
+            });
+            return;
         }
-        const loadingElement = this.renderLoadingElement(file);
+        const loadingElement = this.renderLoadingElement(mainFile);
 
         try {
-            const { viewer, url, extension, ...otherAttributes } = await this.config.uploadFile(file);
+            const { viewer, mainFile: mainFileUrl, secondaryFiles, otherAttributes } = await this.config.uploadFiles(mainFile, validatedFiles.filter(file => file !== mainFile));
             this.data = {
                 ...this.data,
                 file: {
-                    url,
-                    extension
+                    url: mainFileUrl.url,
+                    extension: mainFileUrl.extension
                 },
+                secondaryFiles: secondaryFiles,
                 caption: this.data.caption || "",
                 viewer: viewer,
                 attributes: otherAttributes || {},
@@ -397,22 +388,40 @@ export default class Editorjs360MediaBlock implements BlockTool {
 
     //#region Drawing elements
 
-    private renderUploadButton(autoOpenPicker: boolean = false) {
+    private renderUploadButton(autoOpenPicker: boolean = false): HTMLElement {
+        const shouldBeDirectory = this.config.formatsAllowed.length > 1 || this.config.formatsAllowed[0] !== 'glb';
+        const message = shouldBeDirectory ? 'Select 3D model folder' : 'Select 3D model file';
+
         const uploadButton = document.createElement('div');
         uploadButton.classList.add(this.CSS.uploadButton);
         uploadButton.insertAdjacentHTML('beforeend', /*html*/ UploadIcon);
-        uploadButton.appendChild(document.createTextNode(this.api.i18n.t('Select 3D model')));
+        uploadButton.appendChild(document.createTextNode(this.api.i18n.t(message)));
+
         uploadButton.addEventListener('click', async () => {
             const fileInput = document.createElement('input');
             fileInput.type = 'file';
             fileInput.hidden = true;
+            fileInput.webkitdirectory = shouldBeDirectory;
+
+            // This will be ignored if webkitdirectory is set
             fileInput.accept = this.config.formatsAllowed.map(ext => `.${ext}`).join(',');
 
             fileInput.addEventListener('change', async (e) => {
                 e.stopPropagation();
-                const file = fileInput.files?.[0];
-                if (!file) return;
-                this.handleFileSelected(file);
+                const files = fileInput.files
+                if (!files || files.length === 0) return;
+                const filteredFiles = Array.from(files).filter(file => {
+                    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+                    return this.config.formatsAllowed.includes(fileExt);
+                });
+                if (filteredFiles.length === 0) {
+                    this.api.notifier.show({
+                        message: this.api.i18n.t('No valid 3D model files selected'),
+                        style: 'error',
+                    });
+                    return;
+                }
+                this.handleFilesSelected(filteredFiles);
                 fileInput.remove();
                 uploadButton.remove();
             });
@@ -428,9 +437,10 @@ export default class Editorjs360MediaBlock implements BlockTool {
         }
 
         this.wrapperElement.replaceChildren(uploadButton);
+        return uploadButton;
     }
 
-    private renderLoadingElement(file: File) {
+    private renderLoadingElement(file: File): HTMLElement {
         if (this.config.customLoaderElement) {
             const customLoader = this.config.customLoaderElement(file);
             this.wrapperElement.replaceChildren(customLoader);
