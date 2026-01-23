@@ -33,11 +33,11 @@ export type Media3DLocalConfig<Attributes = {}> = {
      */
     viewerStyle?: Partial<CSSStyleDeclaration>;
     /**
-     * Allowed 3d model & texture formats
-     * @example ['glb','gltf','usdz','obj','mtl','fbx','3mf','jpg','png']
+     * Allowed 3d model extensions, without dot. Their respective extra asset extensions will be automatically detected and allowed.
+     * @example ['glb','gltf','usdz','obj','mtl','fbx','3mf']
      * @default ['glb']
      */
-    formatsAllowed: string[]; // allowed 3d model & texture formats
+    formatsAllowed: string[];
     /**
      * Function to upload file to server. Must return object with url and viewer type.
      * Optionally can return other attributes to add to the 3D viewer element.
@@ -52,7 +52,8 @@ export type Media3DLocalConfig<Attributes = {}> = {
         secondaryFiles?: FileUrl[];
         /**
          * Other attributes to add to the 3D viewer element
-         * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' } https://modelviewer.dev/docs/
+         * modelviewer docs: https://modelviewer.dev/docs/
+         * @example for modelviewer { posterUrl: 'path/to/poster.jpg', iosSrcUrl: 'path/to/model.usdz' }
         */
         otherAttributes?: Attributes
     }>;
@@ -92,15 +93,15 @@ export type Media3DLocalConfig<Attributes = {}> = {
     prepareThreejsImport?: boolean;
     // TODO custom handles for threejs viewer
 
-    threejsConfig?: {
-    }
+    // threejsConfig?: {
+    // }
 }
 
 export type FileUrl = {
     url: string;
     /**
      * File extension without dot
-     * e.g. 'glb', 'gltf', 'usdz'
+     * e.g. 'glb', 'gltf', 'usdz' , 'jpg', 'png'
      */
     extension: string;
 }
@@ -228,7 +229,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
         }
 
         if (data.viewer === 'threejs') {
-            // const rendered = new ThreejsRenderer({ api: this.api, config: this.config });
+            const renderer = new ThreejsRenderer({ api: this.api, config: this.config });
 
             // const viewerElement = rendered.renderViewerFormat(data.file, data?.secondaryFiles ?? []);
             // Object.assign(viewerElement.style, this.config.viewerStyle);
