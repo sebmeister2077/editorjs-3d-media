@@ -158,10 +158,7 @@ export default class Editorjs360MediaBlock implements BlockTool {
         this._data.caption = data.caption ?? "";
         this._data.viewer = data.viewer;
         this._data.attributes = data.attributes ?? {};
-        if (data.viewer === 'threejs') {
-            (this._data as Media3DData<{}, "threejs">).secondaryFiles = data.secondaryFiles ?? [];
-        }
-
+        this._data.secondaryFiles = data.secondaryFiles ?? [];
 
         if (!hasAnythingChanged) return;
         if (this.captionElement && this.captionElement.innerText !== this._data.caption)

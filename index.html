@@ -46,6 +46,88 @@
         <script defer>
             start()
             // document.addEventListener('DOMContentLoaded', start)
+
+            function getConfig() {
+                return {
+                    // viewerStyle: {
+                    //     width: '100%',
+                    //     height: '500px',
+                    //     borderRadius: '8px',
+                    //     backgroundColor: '#f0f0f0',
+                    // },
+                    formatsAllowed: ['glb', 'gltf', 'obj'],
+                    enableDownload: true,
+                    /**
+                     * TODO add this in documentation
+                     * Function to handle file uploads
+                     * For any 3d format that requires relative files& textures, you should either preserve the relative paths in your upload solution using file.webkitRelativePath
+                     * or modify the 3D file to point to the uploaded files as shown in the example below for glTF files. (Since i am using browser local URLs here, I don't have relative paths support )
+                     * @param {File} mainFile The main 3D model file (glb, gltf, obj, etc.)
+                     * @param {File[]} secondaryFiles Additional files (textures, bin files, images, etc.)
+                     */
+                    async uploadFiles(mainFile, secondaryFiles) {
+                        const isSingleFileObject = secondaryFiles.length === 0
+                        if (!isSingleFileObject) {
+                            const mainCommonFolderName = mainFile.webkitRelativePath
+                                ? mainFile.webkitRelativePath.replace(/\/[^\/]*$/, '')
+                                : ''
+                            const fileMap = new Map()
+                            for (const file of secondaryFiles) {
+                                const url = URL.createObjectURL(file)
+                                fileMap.set(file.webkitRelativePath?.replace(mainCommonFolderName + '/', '') || file.name, url)
+                            }
+
+                            const gltfFile = mainFile
+                            const gltfText = await gltfFile.text()
+                            const gltfJson = JSON.parse(gltfText)
+                            for (const buffer of gltfJson.buffers) {
+                                buffer.uri = fileMap.get(buffer.uri)
+                            }
+                            for (const image of gltfJson.images) {
+                                image.uri = fileMap.get(image.uri)
+                            }
+
+                            const newGltfBlob = new Blob([JSON.stringify(gltfJson)], { type: 'model/gltf+json' })
+                            const gltfUrl = URL.createObjectURL(newGltfBlob)
+
+                            // Your file uploading logic here
+                            const extension = mainFile.name.split('.').pop().toLowerCase()
+
+                            return new Promise((resolve) => {
+                                setTimeout(() => {
+                                    resolve({
+                                        mainFile: {
+                                            url: gltfUrl,
+                                            extension,
+                                        },
+                                        secondaryFiles: Array.from(fileMap).map(([name, url]) => ({
+                                            url,
+                                            extension: name.split('.').pop().toLowerCase(),
+                                        })),
+                                        viewer: 'modelviewer', //'threejs', // or 'modelviewer'
+                                    })
+                                }, 1500)
+                            })
+                        } else {
+                            // Single file object upload example (glb, fbx, etc.)
+                            const mainFileUrl = URL.createObjectURL(mainFile)
+                            const extension = mainFile.name.split('.').pop().toLowerCase()
+                            return new Promise((resolve) => {
+                                setTimeout(() => {
+                                    resolve({
+                                        mainFile: {
+                                            url: mainFileUrl,
+                                            extension,
+                                        },
+                                        secondaryFiles: [],
+                                        viewer: 'modelviewer', //'threejs', // or 'modelviewer'
+                                    })
+                                }, 1500)
+                            })
+                        }
+                    },
+                }
+            }
             function start() {
                 if (!window.isScriptLoadded) {
                     console.log('waiting for script to load...')
@@ -77,66 +159,7 @@
                     tools: {
                         media3d: {
                             class: Editorjs3DMedia,
-                            config: {
-                                // viewerStyle: {
-                                //     width: '100%',
-                                //     height: '500px',
-                                //     borderRadius: '8px',
-                                //     backgroundColor: '#f0f0f0',
-                                // },
-                                formatsAllowed: ['glb', 'gltf', 'obj'],
-                                enableDownload: true,
-                                /**
-                                 * TODO add this in documentation
-                                 * Function to handle file uploads
-                                 * For any 3d format that requires relative files& textures, you should either preserve the relative paths in your upload solution using file.webkitRelativePath
-                                 * or modify the 3D file to point to the uploaded files as shown in the example below for glTF files. (Since i am using browser local URLs here, I don't have relative paths support )
-                                 * @param {File} mainFile The main 3D model file (glb, gltf, obj, etc.)
-                                 * @param {File[]} secondaryFiles Additional files (textures, bin files, images, etc.)
-                                 */
-                                async uploadFiles(mainFile, secondaryFiles) {
-                                    const mainCommonFolderName = mainFile.webkitRelativePath
-                                        ? mainFile.webkitRelativePath.replace(/\/[^\/]*$/, '')
-                                        : ''
-                                    const fileMap = new Map()
-                                    for (const file of secondaryFiles) {
-                                        const url = URL.createObjectURL(file)
-                                        fileMap.set(file.webkitRelativePath?.replace(mainCommonFolderName + '/', '') || file.name, url)
-                                    }
-
-                                    const gltfFile = mainFile
-                                    const gltfText = await gltfFile.text()
-                                    const gltfJson = JSON.parse(gltfText)
-                                    for (const buffer of gltfJson.buffers) {
-                                        buffer.uri = fileMap.get(buffer.uri)
-                                    }
-                                    for (const image of gltfJson.images) {
-                                        image.uri = fileMap.get(image.uri)
-                                    }
-
-                                    const newGltfBlob = new Blob([JSON.stringify(gltfJson)], { type: 'model/gltf+json' })
-                                    const gltfUrl = URL.createObjectURL(newGltfBlob)
-
-                                    // Your file uploading logic here
-                                    const extension = mainFile.name.split('.').pop().toLowerCase()
-
-                                    return new Promise((resolve) => {
-                                        setTimeout(() => {
-                                            resolve({
-                                                mainFile: {
-                                                    url: gltfUrl,
-                                                    extension,
-                                                },
-                                                secondaryFiles: Array.from(fileMap).map(([name, url]) => ({
-                                                    url,
-                                                    extension: name.split('.').pop().toLowerCase(),
-                                                })),
-                                                viewer: 'modelviewer', //'threejs', // or 'modelviewer'
-                                            })
-                                        }, 1500)
-                                    })
-                                },
-                            },
+                            config: getConfig(),
                         },
                     },
                     // readOnly: true,
