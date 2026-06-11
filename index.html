@@ -148,12 +148,25 @@
                                 text: 'This is an example of Editorjs 3D Media Block. You can upload and display 3D models in your Editorjs content.',
                             },
                         },
+                        {
+                            type: 'media3d',
+                            data: {
+                                file: {
+                                    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoomBox/glTF-Binary/BoomBox.glb',
+                                    extension: 'glb',
+                                },
+                                caption: 'Paste a public url to a 3D model or upload your own file to display it here.',
+                                viewer: 'modelviewer',
+                                attributes: {},
+                                secondaryFiles: [],
+                            },
+                        },
                     ],
                 }
                 // return
                 let data = defaultData
                 try {
-                    const storedItem = localStorage.getItem(dataLocation)
+                    const storedItem = sessionStorage.getItem(dataLocation)
                     if (storedItem) data = JSON.parse(storedItem) ?? defaultData
                 } catch {}
                 const editor = new EditorJS({
@@ -169,7 +182,7 @@
                         api.saver.save().then((data) => {
                             // remove media3d blocks
                             data.blocks = data.blocks.filter((block) => block.type !== 'media3d')
-                            localStorage.setItem(dataLocation, JSON.stringify(data))
+                            sessionStorage.setItem(dataLocation, JSON.stringify(data))
                         })
                     },
                     data,
